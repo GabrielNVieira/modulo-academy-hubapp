@@ -10,7 +10,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import type { Mission, MissionProgress, ChecklistItem } from '../types';
+import type { Mission, MissionProgress } from '../types';
 
 // Chave para localStorage
 const STORAGE_KEY_MISSIONS = 'academy_missions';

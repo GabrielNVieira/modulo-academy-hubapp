@@ -41,16 +41,27 @@ export function useHubContext(): UseHubContextReturn {
             setError(null);
         };
 
-        // Timeout para caso não receba contexto
+        // Timeout para caso não receba contexto (Standalone Mode)
         const timeout = setTimeout(() => {
             if (!window.hubContext) {
+                console.warn('Hub.App context not found. Switching to Standalone Mode.');
+
+                // MOCK CONTEXT FOR STANDALONE MODE
+                const mockContext: HubContext = {
+                    tenantId: 'demo-tenant',
+                    userId: 'demo-user',
+                    token: 'demo-token',
+                    email: 'demo@example.com',
+                    name: 'Demo User',
+                    theme: 'light'
+                };
+
+                setContext(mockContext);
+                setIsConnected(true);
                 setIsLoading(false);
-                // Não seta erro em dev, pois pode estar rodando standalone
-                if (import.meta.env.PROD) {
-                    setError('Timeout aguardando conexão com Hub.App');
-                }
+                setError(null);
             }
-        }, 5000);
+        }, 2000); // Reduced timeout to 2s for better UX
 
         window.addEventListener('hubContextReady', handleContextReady as EventListener);
 

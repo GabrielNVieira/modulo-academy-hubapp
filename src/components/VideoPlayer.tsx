@@ -17,16 +17,11 @@ import {
   Settings,
   Maximize,
   Edit3,
-  ChevronRight,
-  X,
   Trash2,
   Clock,
   Save,
   PenLine,
-  CheckCircle,
-  AlertCircle,
-  RefreshCw,
-  Award
+  AlertCircle
 } from 'lucide-react';
 
 export type LessonStatus = 'not_started' | 'in_progress' | 'completed';
@@ -68,11 +63,11 @@ interface QuizState {
 }
 
 export function VideoPlayer({
-  lessonTitle = "Introdução ao Sistema",
-  lessonNumber = 3,
-  totalLessons = 8,
-  courseTitle = "Curso: Introdução ao Webhook",
-  xpReward = 100,
+  lessonTitle: _lessonTitle = "Introdução ao Sistema",
+  lessonNumber: _lessonNumber = 3,
+  totalLessons: _totalLessons = 8,
+  courseTitle: _courseTitle = "Curso: Introdução ao Webhook",
+  xpReward: _xpReward = 100,
   videoUrl = "",
   lessonId = "lesson-default",
   onBack,
@@ -87,7 +82,6 @@ export function VideoPlayer({
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
   const [showControls, setShowControls] = useState(true);
-  const [playbackRate, setPlaybackRate] = useState(1);
   const [activeTab, setActiveTab] = useState<'notas' | 'quiz'>('notas');
 
   // Estados do sistema de notas

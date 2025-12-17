@@ -7,8 +7,8 @@
  * - Estado global do módulo
  */
 
-import { useState, useEffect } from 'react';
-import { GraduationCap, BookOpen, Target, Trophy, Loader2 } from 'lucide-react';
+import { useState } from 'react';
+import { GraduationCap, BookOpen, Target, Loader2 } from 'lucide-react';
 import { useHubContext, useProgress } from './hooks';
 
 // Layout Components
@@ -20,7 +20,7 @@ import { CoursesTab } from './components/tabs/CoursesTab';
 import { MissionsTab } from './components/tabs/MissionsTab';
 
 // Types
-import type { ModuleTab, AcademyModuleConfig } from './types';
+import type { AcademyModuleConfig } from './types';
 
 // ==================== MODULE CONFIG ====================
 

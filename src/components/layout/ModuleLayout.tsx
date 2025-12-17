@@ -6,7 +6,7 @@
  */
 
 import { ReactNode, useState, useEffect } from 'react';
-import { Bell, Settings, Search, Menu, X, GraduationCap } from 'lucide-react';
+import { Bell, Settings, Search, Menu, GraduationCap } from 'lucide-react';
 import type { AcademyModuleConfig } from '../../types';
 import { cn } from '../../lib/utils';
 

@@ -7,7 +7,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useHubContext } from './useHubContext';
-import type { UserProgress, UserStats, Streak, Level, DEFAULT_LEVELS } from '../types';
+import type { UserProgress, UserStats, Streak, Level } from '../types';
 
 // Dados mockados para desenvolvimento
 const MOCK_PROGRESS: UserProgress = {
@@ -119,7 +119,7 @@ export function useProgress(): UseProgressReturn {
         }
     }, [isConnected, context]);
 
-    const addXp = useCallback(async (amount: number, source: string) => {
+    const addXp = useCallback(async (amount: number, _source: string) => {
         if (!progress) {
             return { leveledUp: false };
         }

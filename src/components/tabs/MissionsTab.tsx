@@ -11,13 +11,11 @@ import { Lock, CheckCircle2, Clock, Trophy, Flame, HelpCircle, ChevronDown, Chev
 import { useMissions } from '../../hooks/useMissions';
 import { useProgress } from '../../hooks/useProgress';
 import confetti from 'canvas-confetti';
-import type { Mission } from '../../types';
 
 export function MissionsTab() {
     const {
         missions,
         selectedMission,
-        progress,
         isLoading,
         selectMission,
         toggleChecklistItem,
@@ -25,7 +23,7 @@ export function MissionsTab() {
         completeMission,
     } = useMissions();
 
-    const { progress: userProgress, streak, addXp } = useProgress();
+    const { streak, addXp } = useProgress();
     const [showHelp, setShowHelp] = useState(false);
     const [showCompletionModal, setShowCompletionModal] = useState(false);
     const [completedMissionXp, setCompletedMissionXp] = useState(0);
@@ -250,71 +248,71 @@ export function MissionsTab() {
                                     {selectedMission.requirements.items.map((item, index) => {
                                         console.log('🎨 Rendering item:', item.text, 'completed:', item.completed);
                                         return (
-                                        <div
-                                            key={item.id}
-                                            onClick={() => {
-                                                if (selectedMission.status !== 'completed' && selectedMission.status !== 'locked') {
-                                                    console.log('🖱️ Click on item:', item.id);
-                                                    toggleChecklistItem(selectedMission.id, item.id);
-                                                }
-                                            }}
-                                            className={`
+                                            <div
+                                                key={item.id}
+                                                onClick={() => {
+                                                    if (selectedMission.status !== 'completed' && selectedMission.status !== 'locked') {
+                                                        console.log('🖱️ Click on item:', item.id);
+                                                        toggleChecklistItem(selectedMission.id, item.id);
+                                                    }
+                                                }}
+                                                className={`
                                                 flex items-start gap-3 p-4 border-2 rounded-lg transition-all duration-200
                                                 ${item.completed
-                                                    ? 'bg-green-50 border-green-300'
-                                                    : 'bg-white border-gray-300 hover:border-gray-400 hover:shadow-sm'
-                                                }
+                                                        ? 'bg-green-50 border-green-300'
+                                                        : 'bg-white border-gray-300 hover:border-gray-400 hover:shadow-sm'
+                                                    }
                                                 ${selectedMission.status !== 'completed' && selectedMission.status !== 'locked'
-                                                    ? 'cursor-pointer active:scale-[0.98]'
-                                                    : 'cursor-default'
-                                                }
+                                                        ? 'cursor-pointer active:scale-[0.98]'
+                                                        : 'cursor-default'
+                                                    }
                                             `}
-                                        >
-                                            {/* Checkbox */}
-                                            <div
-                                                className="flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center mt-0.5 transition-all duration-200"
-                                                style={{
-                                                    backgroundColor: item.completed ? '#22c55e' : '#ffffff',
-                                                    borderColor: item.completed ? '#22c55e' : '#d1d5db'
-                                                }}
                                             >
-                                                {item.completed && (
-                                                    <svg
-                                                        className="w-3 h-3"
-                                                        style={{ color: '#ffffff' }}
-                                                        fill="none"
-                                                        strokeLinecap="round"
-                                                        strokeLinejoin="round"
-                                                        strokeWidth="3"
-                                                        viewBox="0 0 24 24"
-                                                        stroke="currentColor"
-                                                    >
-                                                        <path d="M5 13l4 4L19 7" />
-                                                    </svg>
-                                                )}
-                                            </div>
+                                                {/* Checkbox */}
+                                                <div
+                                                    className="flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center mt-0.5 transition-all duration-200"
+                                                    style={{
+                                                        backgroundColor: item.completed ? '#22c55e' : '#ffffff',
+                                                        borderColor: item.completed ? '#22c55e' : '#d1d5db'
+                                                    }}
+                                                >
+                                                    {item.completed && (
+                                                        <svg
+                                                            className="w-3 h-3"
+                                                            style={{ color: '#ffffff' }}
+                                                            fill="none"
+                                                            strokeLinecap="round"
+                                                            strokeLinejoin="round"
+                                                            strokeWidth="3"
+                                                            viewBox="0 0 24 24"
+                                                            stroke="currentColor"
+                                                        >
+                                                            <path d="M5 13l4 4L19 7" />
+                                                        </svg>
+                                                    )}
+                                                </div>
 
-                                            {/* Texto */}
-                                            <div className="flex-1">
-                                                <div className="flex items-center gap-2">
-                                                    <span className={`
+                                                {/* Texto */}
+                                                <div className="flex-1">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className={`
                                                         text-xs font-bold transition-colors duration-200
                                                         ${item.completed ? 'text-green-600' : 'text-gray-500'}
                                                     `}>
-                                                        {index + 1}.
-                                                    </span>
-                                                    <span className={`
+                                                            {index + 1}.
+                                                        </span>
+                                                        <span className={`
                                                         text-sm font-medium transition-all duration-200
                                                         ${item.completed ? 'text-green-700 line-through opacity-75' : 'text-gray-900'}
                                                     `}>
-                                                        {item.text}
-                                                    </span>
-                                                    {item.required && (
-                                                        <span className="text-xs text-red-500 font-bold">*</span>
-                                                    )}
+                                                            {item.text}
+                                                        </span>
+                                                        {item.required && (
+                                                            <span className="text-xs text-red-500 font-bold">*</span>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
                                         );
                                     })}
                                 </div>

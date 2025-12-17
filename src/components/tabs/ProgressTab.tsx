@@ -8,8 +8,6 @@
  * - Streak card
  */
 
-import { Trophy, Flame, BookOpen, Target, Award, TrendingUp } from 'lucide-react';
-import { cn, formatXP, getLevelColor, getLevelName } from '../../lib/utils';
 import type { UserProgress, UserStats, Streak } from '../../types';
 
 interface ProgressTabProps {
@@ -19,7 +17,7 @@ interface ProgressTabProps {
     isLoading: boolean;
 }
 
-export function ProgressTab({ progress, stats, streak, isLoading }: ProgressTabProps) {
+export function ProgressTab({ progress, stats, isLoading }: ProgressTabProps) {
     if (isLoading) {
         return <ProgressTabSkeleton />;
     }
