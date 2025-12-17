@@ -5,7 +5,7 @@
  * Gerencia estado de conexão e dados do usuário
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import type { HubContext } from '../main';
 
 interface UseHubContextReturn {
@@ -50,10 +50,15 @@ export function useHubContext(): UseHubContextReturn {
                 const mockContext: HubContext = {
                     tenantId: 'demo-tenant',
                     userId: 'demo-user',
-                    token: 'demo-token',
                     email: 'demo@example.com',
-                    name: 'Demo User',
-                    theme: 'light'
+                    moduleName: 'Academy',
+                    apiUrl: 'https://api.mock',
+                    apiToken: 'mock-token',
+                    env: {
+                        SUPABASE_URL: '',
+                        SUPABASE_ANON_KEY: ''
+                    },
+                    session: null
                 };
 
                 setContext(mockContext);
