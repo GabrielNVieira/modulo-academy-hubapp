@@ -21,7 +21,12 @@ import {
   Clock,
   Save,
   PenLine,
-  AlertCircle
+  AlertCircle,
+  Award,
+  RefreshCw,
+  CheckCircle,
+  ChevronRight,
+  X
 } from 'lucide-react';
 
 export type LessonStatus = 'not_started' | 'in_progress' | 'completed';
@@ -63,11 +68,11 @@ interface QuizState {
 }
 
 export function VideoPlayer({
-  lessonTitle: _lessonTitle = "Introdução ao Sistema",
-  lessonNumber: _lessonNumber = 3,
-  totalLessons: _totalLessons = 8,
-  courseTitle: _courseTitle = "Curso: Introdução ao Webhook",
-  xpReward: _xpReward = 100,
+  lessonTitle = "Introdução ao Sistema",
+  lessonNumber = 3,
+  totalLessons = 8,
+  courseTitle = "Curso: Introdução ao Webhook",
+  xpReward = 100,
   videoUrl = "",
   lessonId = "lesson-default",
   onBack,
