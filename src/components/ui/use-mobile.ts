@@ -1,55 +1,22 @@
-/**
- * Hook para detectar se é mobile
- * Otimizado para o MultiFins Mobile First
- */
+import * as React from "react"
 
-import { useState, useEffect } from 'react';
+const MOBILE_BREAKPOINT = 768
 
 export function useMobile() {
-  const [isMobile, setIsMobile] = useState(false);
+    const [isMobile, setIsMobile] = React.useState<boolean | undefined>(undefined)
 
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768); // md breakpoint do Tailwind
-    };
-    
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
+    React.useEffect(() => {
+        const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`)
+        const onChange = () => {
+            setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
+        }
+        mql.addEventListener("change", onChange)
+        setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
+        return () => mql.removeEventListener("change", onChange)
+    }, [])
 
-  return isMobile;
+    return !!isMobile
 }
 
-export function useDeviceInfo() {
-  const [deviceInfo, setDeviceInfo] = useState({
-    isMobile: false,
-    isTablet: false,
-    isDesktop: false,
-    width: 0,
-    height: 0
-  });
-
-  useEffect(() => {
-    const updateDeviceInfo = () => {
-      const width = window.innerWidth;
-      const height = window.innerHeight;
-      
-      setDeviceInfo({
-        isMobile: width < 768,
-        isTablet: width >= 768 && width < 1024,
-        isDesktop: width >= 1024,
-        width,
-        height
-      });
-    };
-    
-    updateDeviceInfo();
-    window.addEventListener('resize', updateDeviceInfo);
-    
-    return () => window.removeEventListener('resize', updateDeviceInfo);
-  }, []);
-
-  return deviceInfo;
-}
+// Alias for backward compatibility
+export const useIsMobile = useMobile

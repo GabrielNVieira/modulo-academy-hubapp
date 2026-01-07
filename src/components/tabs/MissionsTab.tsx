@@ -7,7 +7,6 @@ import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Progress } from '../ui/progress';
 import { ScrollArea } from '../ui/scroll-area';
-import { Separator } from '../ui/separator';
 import { cn } from '../../lib/utils';
 import confetti from 'canvas-confetti';
 

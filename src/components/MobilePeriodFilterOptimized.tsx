@@ -5,7 +5,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { CustomPeriodModal } from './CustomPeriodModal'
-import { Filter, ChevronDown, Calendar, Clock, TrendingUp, X } from 'lucide-react'
+import { Filter, ChevronDown, Calendar, Clock, TrendingUp } from 'lucide-react'
 import { useMobile } from './ui/use-mobile'
 import { motion, AnimatePresence } from 'motion/react'
 
@@ -22,9 +22,9 @@ interface MobilePeriodFilterOptimizedProps {
   transactionCount?: number
 }
 
-export function MobilePeriodFilterOptimized({ 
-  value, 
-  onChange, 
+export function MobilePeriodFilterOptimized({
+  value,
+  onChange,
   isLoading = false,
   className = '',
   showOnDesktop = false,
@@ -34,7 +34,6 @@ export function MobilePeriodFilterOptimized({
 }: MobilePeriodFilterOptimizedProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [isCustomModalOpen, setIsCustomModalOpen] = useState(false)
-  const [selectedPeriod, setSelectedPeriod] = useState(value)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const isMobile = useMobile()
@@ -45,33 +44,33 @@ export function MobilePeriodFilterOptimized({
   }
 
   const periodOptions = [
-    { 
-      key: 'semanal', 
-      label: '7d', 
+    {
+      key: 'semanal',
+      label: '7d',
       fullLabel: 'Últimos 7 dias',
       icon: Clock,
       color: 'from-cyan-500 to-cyan-600',
       description: 'Visualização semanal'
     },
-    { 
-      key: 'mensal', 
-      label: '30d', 
+    {
+      key: 'mensal',
+      label: '30d',
       fullLabel: 'Últimos 30 dias',
       icon: Clock,
       color: 'from-blue-500 to-blue-600',
       description: 'Visualização mensal'
     },
-    { 
-      key: 'trimestral', 
-      label: '3m', 
+    {
+      key: 'trimestral',
+      label: '3m',
       fullLabel: 'Últimos 3 meses',
       icon: TrendingUp,
       color: 'from-emerald-500 to-emerald-600',
       description: 'Análise trimestral'
-    },  
-    { 
-      key: 'anual', 
-      label: '1a', 
+    },
+    {
+      key: 'anual',
+      label: '1a',
       fullLabel: 'Último ano',
       icon: Calendar,
       color: 'from-purple-500 to-purple-600',
@@ -111,12 +110,12 @@ export function MobilePeriodFilterOptimized({
     if (isDropdownOpen) {
       document.addEventListener('mousedown', handleClickOutside)
       document.addEventListener('keydown', handleEscape)
-      
+
       // Prevent body scroll on mobile
       if (isMobile) {
         document.body.style.overflow = 'hidden'
       }
-      
+
       return () => {
         document.removeEventListener('mousedown', handleClickOutside)
         document.removeEventListener('keydown', handleEscape)
@@ -132,14 +131,12 @@ export function MobilePeriodFilterOptimized({
       setIsCustomModalOpen(true)
     } else {
       onChange(newValue)
-      setSelectedPeriod(newValue)
     }
     setIsDropdownOpen(false)
   }
 
-  const handleCustomPeriodApply = (startDate: string, endDate: string) => {
+  const handleCustomPeriodApply = (_startDate: string, _endDate: string) => {
     onChange('personalizado')
-    setSelectedPeriod('personalizado')
     setIsCustomModalOpen(false)
   }
 
@@ -160,7 +157,7 @@ export function MobilePeriodFilterOptimized({
             title={`Filtro: ${currentPeriod.fullLabel}`}
           >
             <Filter className="h-4 w-4 text-slate-600 group-hover:text-slate-800" />
-            
+
             {isLoading && (
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="h-3 w-3 border border-primary/30 border-t-primary rounded-full animate-spin" />
@@ -190,7 +187,7 @@ export function MobilePeriodFilterOptimized({
                     )}
                   </div>
                 </div>
-                
+
                 <div className="p-1.5">
                   {periodOptions.map((option) => {
                     const IconComponent = option.icon
@@ -201,7 +198,7 @@ export function MobilePeriodFilterOptimized({
                         className={`
                           w-full text-left px-3 py-2.5 rounded-lg text-sm transition-all duration-200 flex items-center gap-3
                           ${value === option.key
-                            ? 'bg-[var(--color-multifins-blue)] text-white shadow-sm' 
+                            ? 'bg-[var(--color-multifins-blue)] text-white shadow-sm'
                             : 'text-slate-700 hover:bg-slate-50 active:bg-slate-100'
                           }
                         `}
@@ -209,9 +206,8 @@ export function MobilePeriodFilterOptimized({
                         <IconComponent className="h-4 w-4" />
                         <div className="flex-1">
                           <div className="font-medium">{option.fullLabel}</div>
-                          <div className={`text-xs ${
-                            value === option.key ? 'text-white/80' : 'text-slate-500'
-                          }`}>
+                          <div className={`text-xs ${value === option.key ? 'text-white/80' : 'text-slate-500'
+                            }`}>
                             {option.description}
                           </div>
                         </div>
@@ -221,15 +217,15 @@ export function MobilePeriodFilterOptimized({
                       </button>
                     )
                   })}
-                  
+
                   <div className="my-1.5 border-t border-slate-100" />
-                  
+
                   <button
                     onClick={() => handleValueChange('personalizado')}
                     className={`
                       w-full text-left px-3 py-2.5 rounded-lg text-sm transition-all duration-200 flex items-center gap-3
                       ${value === 'personalizado'
-                        ? 'bg-gradient-to-r from-slate-500 to-slate-600 text-white shadow-sm' 
+                        ? 'bg-gradient-to-r from-slate-500 to-slate-600 text-white shadow-sm'
                         : 'text-slate-700 hover:bg-slate-50 active:bg-slate-100'
                       }
                     `}
@@ -237,9 +233,8 @@ export function MobilePeriodFilterOptimized({
                     <Filter className="h-4 w-4" />
                     <div className="flex-1">
                       <div className="font-medium">Período Personalizado</div>
-                      <div className={`text-xs ${
-                        value === 'personalizado' ? 'text-white/80' : 'text-slate-500'
-                      }`}>
+                      <div className={`text-xs ${value === 'personalizado' ? 'text-white/80' : 'text-slate-500'
+                        }`}>
                         Escolha datas específicas
                       </div>
                     </div>
@@ -282,10 +277,9 @@ export function MobilePeriodFilterOptimized({
           >
             <currentPeriod.icon className="h-3 w-3" />
             <span>{currentPeriod.label}</span>
-            <ChevronDown className={`h-3 w-3 transition-transform duration-200 ${
-              isDropdownOpen ? 'rotate-180' : ''
-            }`} />
-            
+            <ChevronDown className={`h-3 w-3 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''
+              }`} />
+
             {isLoading && (
               <div className="h-2 w-2 border border-primary/30 border-t-primary rounded-full animate-spin" />
             )}
@@ -311,7 +305,7 @@ export function MobilePeriodFilterOptimized({
                         className={`
                           w-full text-left px-3 py-2 rounded-lg text-sm transition-all duration-200 flex items-center gap-2
                           ${value === option.key
-                            ? 'bg-[var(--color-multifins-blue)] text-white shadow-sm' 
+                            ? 'bg-[var(--color-multifins-blue)] text-white shadow-sm'
                             : 'text-slate-700 hover:bg-slate-50 active:bg-slate-100'
                           }
                         `}
@@ -321,15 +315,15 @@ export function MobilePeriodFilterOptimized({
                       </button>
                     )
                   })}
-                  
+
                   <div className="my-1.5 border-t border-slate-100" />
-                  
+
                   <button
                     onClick={() => handleValueChange('personalizado')}
                     className={`
                       w-full text-left px-3 py-2 rounded-lg text-sm transition-all duration-200 flex items-center gap-2
                       ${value === 'personalizado'
-                        ? 'bg-gradient-to-r from-slate-500 to-slate-600 text-white shadow-sm' 
+                        ? 'bg-gradient-to-r from-slate-500 to-slate-600 text-white shadow-sm'
                         : 'text-slate-700 hover:bg-slate-50 active:bg-slate-100'
                       }
                     `}

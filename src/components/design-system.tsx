@@ -401,7 +401,6 @@ export function E4CEOMobileTabBar({
 interface HeaderProps {
   title?: string
   rightContent?: ReactNode
-  rightContent?: ReactNode
   selectedPeriod?: string
   onPeriodChange?: (period: string) => void
   showPeriodFilter?: boolean
@@ -807,7 +806,6 @@ export function E4CEODashboardLayout({
       <div className="md:hidden min-h-screen pb-28">
         <E4CEOHeader
           title={title}
-          showSearch={false}
           selectedPeriod={selectedPeriod}
           onPeriodChange={onPeriodChange}
           showPeriodFilter={true}

@@ -5,7 +5,6 @@
 
 import { Component, ErrorInfo, ReactNode } from 'react';
 import App from './App';
-import { GraduationCap } from 'lucide-react';
 
 interface Props {
     children?: ReactNode;

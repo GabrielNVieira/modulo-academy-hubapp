@@ -9,12 +9,18 @@
  */
 
 import { E4CEOCard } from '../design-system';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
 import { Progress } from '../ui/progress';
 import { Badge } from '../ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Separator } from '../ui/separator';
 import { GraduationCap } from 'lucide-react';
+
+interface ProgressTabProps {
+    progress: any;
+    stats: any;
+    streak?: any;
+    isLoading: boolean;
+}
 
 export function ProgressTab({ progress, stats, isLoading }: ProgressTabProps) {
     if (isLoading) {
