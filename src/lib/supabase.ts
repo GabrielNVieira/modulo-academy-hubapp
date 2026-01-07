@@ -77,3 +77,44 @@ export function isSupabaseReady(): boolean {
 export function getSupabaseOrNull(): SupabaseClient | null {
     return supabaseInstance;
 }
+
+/**
+ * Set session context for RLS policies
+ * Configura tenant_id e user_id para Row-Level Security no PostgreSQL
+ * Deve ser chamado no início de cada requisição/operação
+ */
+export async function setSessionContext(tenantId: string, userId: string): Promise<void> {
+    try {
+        const client = getSupabase();
+
+        // Chamar a função PostgreSQL para configurar o contexto da sessão
+        const { error } = await client.rpc('set_session_context', {
+            p_tenant_id: tenantId,
+            p_user_id: userId
+        });
+
+        if (error) {
+            console.error('❌ [Academy] Erro ao configurar contexto da sessão:', error);
+            throw error;
+        }
+
+        console.log('✅ [Academy] Contexto da sessão configurado:', { tenantId, userId });
+    } catch (error) {
+        console.error('❌ [Academy] Falha ao configurar contexto da sessão:', error);
+        throw error;
+    }
+}
+
+/**
+ * Execute query with automatic session context
+ * Wrapper que configura o contexto RLS antes de executar callback
+ */
+export async function withSessionContext<T>(
+    tenantId: string,
+    userId: string,
+    callback: (client: SupabaseClient) => Promise<T>
+): Promise<T> {
+    await setSessionContext(tenantId, userId);
+    const client = getSupabase();
+    return callback(client);
+}

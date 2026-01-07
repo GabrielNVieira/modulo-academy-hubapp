@@ -70,6 +70,9 @@ window.addEventListener('message', async (event) => {
             window.hubContext = event.data.payload as HubContext;
             window.isHubConnected = true;
 
+            // Adicionar classe ao body indicando que está dentro do Hub
+            document.body.classList.add('hub-embedded');
+
             // Inicializar Supabase client com sessão compartilhada
             if (window.hubContext.env?.SUPABASE_URL && window.hubContext.env?.SUPABASE_ANON_KEY) {
                 await initializeSupabase(window.hubContext);

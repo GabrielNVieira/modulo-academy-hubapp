@@ -44,7 +44,7 @@ export function useHubContext(): UseHubContextReturn {
         // Timeout para caso não receba contexto (Standalone Mode)
         const timeout = setTimeout(() => {
             if (!window.hubContext) {
-                console.warn('Hub.App context not found. Switching to Standalone Mode.');
+                console.log('⚠️ [Academy] Hub.App context not found. Switching to Standalone Mode.');
 
                 // MOCK CONTEXT FOR STANDALONE MODE
                 const mockContext: HubContext = {
@@ -61,12 +61,14 @@ export function useHubContext(): UseHubContextReturn {
                     session: null
                 };
 
+                window.hubContext = mockContext;
                 setContext(mockContext);
                 setIsConnected(true);
                 setIsLoading(false);
                 setError(null);
+                console.log('✅ [Academy] Standalone Mode ativado com contexto mock');
             }
-        }, 2000); // Reduced timeout to 2s for better UX
+        }, 500); // Timeout reduzido para 500ms
 
         window.addEventListener('hubContextReady', handleContextReady as EventListener);
 

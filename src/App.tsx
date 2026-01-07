@@ -76,12 +76,12 @@ export default function App() {
     const { isLoading: hubLoading, isConnected, error: hubError } = useHubContext();
     const { progress, stats, streak, isLoading: progressLoading } = useProgress();
 
-    // Loading inicial
+    // Loading inicial - com fundo visível
     if (hubLoading && !window.hubContext) {
         return (
-            <div className="min-h-screen bg-transparent flex items-center justify-center">
+            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
                 <div className="text-center space-y-4">
-                    <div className="w-16 h-16 mx-auto bg-gradient-to-br from-primary to-primary/80 rounded-2xl flex items-center justify-center animate-pulse">
+                    <div className="w-16 h-16 mx-auto bg-gradient-to-br from-cyan-500 to-cyan-600 rounded-2xl flex items-center justify-center animate-pulse">
                         <GraduationCap className="h-8 w-8 text-white" />
                     </div>
                     <div className="flex items-center justify-center gap-2 text-gray-600">
@@ -96,7 +96,7 @@ export default function App() {
     // Erro de conexão (em produção)
     if (hubError && import.meta.env.PROD) {
         return (
-            <div className="min-h-screen bg-transparent flex items-center justify-center p-4">
+            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
                 <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md text-center space-y-4">
                     <div className="w-16 h-16 mx-auto bg-red-100 rounded-full flex items-center justify-center">
                         <span className="text-3xl">⚠️</span>
@@ -105,7 +105,7 @@ export default function App() {
                     <p className="text-gray-600">{hubError}</p>
                     <button
                         onClick={() => window.location.reload()}
-                        className="px-6 py-2 bg-primary text-white rounded-xl hover:bg-primary/90 transition-colors"
+                        className="px-6 py-2 bg-cyan-500 text-white rounded-xl hover:bg-cyan-600 transition-colors"
                     >
                         Tentar Novamente
                     </button>

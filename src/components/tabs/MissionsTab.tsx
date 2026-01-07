@@ -1,15 +1,14 @@
-/**
- * Academy Module - Missions Tab
- *
- * Aba de missões práticas com checklist interativo
- * Layout: 2 colunas (lista esquerda, detalhes direita)
- * Sistema de ajuda gratuito (sem penalidade de XP)
- */
-
 import { useState, useEffect } from 'react';
-import { Lock, CheckCircle2, Clock, Trophy, Flame, HelpCircle, ChevronDown, ChevronRight } from 'lucide-react';
+import { Lock, CheckCircle2, Clock, Trophy, Flame, HelpCircle, ChevronRight, Target } from 'lucide-react';
 import { useMissions } from '../../hooks/useMissions';
 import { useProgress } from '../../hooks/useProgress';
+import { E4CEOCard } from '../design-system';
+import { Badge } from '../ui/badge';
+import { Button } from '../ui/button';
+import { Progress } from '../ui/progress';
+import { ScrollArea } from '../ui/scroll-area';
+import { Separator } from '../ui/separator';
+import { cn } from '../../lib/utils';
 import confetti from 'canvas-confetti';
 
 export function MissionsTab() {
@@ -82,346 +81,242 @@ export function MissionsTab() {
         : false;
 
     return (
-        <div className="h-full p-4">
+        <div className="h-[calc(100vh-8rem)] flex flex-col gap-6">
             {/* Header */}
-            <div className="mb-6">
-                <div className="flex items-center justify-between mb-2">
-                    <h1 className="text-xl font-bold text-gray-900 uppercase tracking-wide">MISSÕES</h1>
-                    <div className="flex items-center gap-4">
-                        <span className="text-sm font-bold text-gray-700">
-                            {activeMissionsCount}/{totalMissions} missões ativas
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-2">
+                <h1 className="text-3xl font-extrabold text-foreground tracking-tight">Missões Operacionais</h1>
+                <div className="flex items-center gap-4">
+                    <Badge variant="outline" className="px-4 py-1.5 border-primary/20 bg-primary/5 text-primary font-bold">
+                        {activeMissionsCount}/{totalMissions} ATIVAS
+                    </Badge>
+                    <div className="flex items-center gap-2 bg-gradient-to-r from-orange-500 to-rose-500 rounded-full px-4 py-1.5 shadow-lg shadow-orange-500/20">
+                        <Flame className="h-4 w-4 text-white animate-pulse" />
+                        <span className="text-sm font-black text-white">
+                            {streak?.current || 0} DIAS
                         </span>
-                        <div className="flex items-center gap-2 bg-orange-50 border-2 border-orange-200 rounded-lg px-3 py-1">
-                            <Flame className="h-4 w-4 text-orange-500" />
-                            <span className="text-sm font-bold text-orange-600">
-                                {streak?.current || 0} DIAS CONSECUTIVOS
-                            </span>
-                        </div>
                     </div>
                 </div>
             </div>
 
-            {/* Layout 2 colunas */}
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-4" style={{ height: 'calc(100% - 80px)' }}>
-                {/* Coluna Esquerda - Lista de Missões (40%) */}
-                <div className="lg:col-span-2 flex flex-col gap-3 overflow-y-auto pr-2">
-                    {missions.map((mission, index) => {
-                        const isSelected = selectedMission?.id === mission.id;
-                        const isLocked = mission.status === 'locked';
-                        const isCompleted = mission.status === 'completed';
-                        const isInProgress = mission.status === 'in_progress';
+            {/* Layout 2 colunas - Flex-1 para ocupar o resto da altura */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 min-h-0">
+                {/* Coluna Esquerda - Lista de Missões */}
+                <div className="lg:col-span-6 xl:col-span-5">
+                    <E4CEOCard className="h-full flex flex-col p-0 overflow-hidden border-white/20 shadow-2xl">
+                        <div className="p-4 border-b border-gray-100 bg-white/50 backdrop-blur-md sticky top-0 z-10">
+                            <h3 className="text-sm font-bold flex items-center gap-2 text-gray-700 uppercase tracking-tight">
+                                <Target className="h-4 w-4 text-primary" />
+                                Lista de Missões
+                            </h3>
+                        </div>
+                        <div className="flex-1 min-h-0 relative">
+                            <ScrollArea className="h-full w-full">
+                                <div className="p-4 space-y-4">
+                                    {missions.map((mission) => {
+                                        const isSelected = selectedMission?.id === mission.id;
+                                        const isLocked = mission.status === 'locked';
+                                        const isCompleted = mission.status === 'completed';
+                                        const isInProgress = mission.status === 'in_progress';
 
-                        return (
-                            <div key={mission.id} className="relative">
-                                {/* Card da Missão */}
-                                <div
-                                    onClick={() => !isLocked && selectMission(mission.id)}
-                                    className={`
-                                        bg-white border-2 rounded-xl p-4 transition-all cursor-pointer
-                                        ${isLocked ? 'opacity-50 cursor-not-allowed border-gray-200' : ''}
-                                        ${isSelected && !isLocked ? 'border-blue-400 shadow-lg ring-2 ring-blue-100' : 'border-gray-300'}
-                                        ${!isSelected && !isLocked ? 'hover:border-gray-400 hover:shadow-md' : ''}
-                                    `}
-                                >
-                                    <div className="flex items-start justify-between gap-3">
-                                        {/* Ícone de status */}
-                                        <div className="flex-shrink-0 mt-1">
-                                            {isLocked && <Lock className="h-5 w-5 text-gray-400" />}
-                                            {isCompleted && <CheckCircle2 className="h-5 w-5 text-green-500" />}
-                                            {isInProgress && <Clock className="h-5 w-5 text-blue-500" />}
-                                            {mission.status === 'available' && (
-                                                <div className="w-5 h-5 rounded-full border-2 border-gray-300" />
-                                            )}
-                                        </div>
-
-                                        {/* Conteúdo */}
-                                        <div className="flex-1 min-w-0">
-                                            <h3 className={`text-sm font-bold mb-1 ${isLocked ? 'text-gray-400' : 'text-gray-900'}`}>
-                                                {mission.title}
-                                            </h3>
-                                            <p className={`text-xs mb-2 line-clamp-2 ${isLocked ? 'text-gray-400' : 'text-gray-600'}`}>
-                                                {mission.description}
-                                            </p>
-                                            <div className="flex items-center gap-3 text-xs">
-                                                <span className={`font-bold ${isLocked ? 'text-gray-400' : 'text-blue-600'}`}>
-                                                    +{mission.xpReward} XP
-                                                </span>
-                                                <span className={`${isLocked ? 'text-gray-400' : 'text-gray-500'}`}>
-                                                    ~{mission.estimatedTime}min
-                                                </span>
-                                            </div>
-                                        </div>
-
-                                        {/* Badge de categoria */}
-                                        <div className={`
-                                            flex-shrink-0 px-2 py-1 rounded text-[10px] font-bold uppercase
-                                            ${mission.type === 'tutorial' ? 'bg-blue-100 text-blue-700' : ''}
-                                            ${mission.type === 'livre' ? 'bg-green-100 text-green-700' : ''}
-                                            ${mission.type === 'problema' ? 'bg-orange-100 text-orange-700' : ''}
-                                            ${mission.type === 'otimizacao' ? 'bg-purple-100 text-purple-700' : ''}
-                                            ${isLocked ? 'opacity-50' : ''}
-                                        `}>
-                                            {mission.type}
-                                        </div>
-                                    </div>
-
-                                    {/* Barra de progresso (se in_progress) */}
-                                    {isInProgress && (
-                                        <div className="mt-3 pt-3 border-t border-gray-200">
-                                            <div className="flex items-center justify-between text-xs mb-1">
-                                                <span className="text-gray-600 font-medium">Progresso</span>
-                                                <span className="text-gray-700 font-bold">
-                                                    {mission.requirements.items.filter(i => i.completed).length}/{mission.requirements.items.length}
-                                                </span>
-                                            </div>
-                                            <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                                                <div
-                                                    className="h-full bg-blue-500 transition-all"
-                                                    style={{
-                                                        width: `${(mission.requirements.items.filter(i => i.completed).length / mission.requirements.items.length) * 100}%`
-                                                    }}
-                                                />
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Seta conectando missões */}
-                                {index < missions.length - 1 && (
-                                    <div className="flex justify-center py-2">
-                                        <ChevronDown className="h-5 w-5 text-gray-300" />
-                                    </div>
-                                )}
-                            </div>
-                        );
-                    })}
-                </div>
-
-                {/* Coluna Direita - Detalhes da Missão (60%) */}
-                <div className="lg:col-span-3 bg-white border-2 border-gray-300 rounded-xl p-6 overflow-y-auto">
-                    {selectedMission ? (
-                        <div className="space-y-6">
-                            {/* Cabeçalho da Missão */}
-                            <div>
-                                <div className="flex items-start justify-between mb-2">
-                                    <h2 className="text-lg font-bold text-gray-900 uppercase tracking-wide">
-                                        {selectedMission.title}
-                                    </h2>
-                                    <div className="flex items-center gap-2 bg-blue-50 border-2 border-blue-200 rounded-lg px-3 py-1">
-                                        <Trophy className="h-4 w-4 text-blue-600" />
-                                        <span className="text-sm font-bold text-blue-600">
-                                            +{selectedMission.xpReward} XP
-                                        </span>
-                                    </div>
-                                </div>
-                                <p className="text-sm text-gray-600 mb-4">{selectedMission.description}</p>
-
-                                {/* Meta info */}
-                                <div className="flex items-center gap-4 text-xs text-gray-500">
-                                    <span className="flex items-center gap-1">
-                                        <Clock className="h-3 w-3" />
-                                        Tempo estimado: {selectedMission.estimatedTime}min
-                                    </span>
-                                    <span>•</span>
-                                    <span className="font-medium">{selectedMission.category}</span>
-                                </div>
-                            </div>
-
-                            {/* Objetivos da Missão */}
-                            <div>
-                                <h3 className="text-sm font-bold text-gray-900 mb-3 uppercase tracking-wide">
-                                    OBJETIVOS DA MISSÃO
-                                </h3>
-                                <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
-                                    <p className="text-sm text-gray-700 leading-relaxed">
-                                        {selectedMission.description}
-                                    </p>
-                                </div>
-                            </div>
-
-                            {/* Etapas (Checklist) */}
-                            <div>
-                                <h3 className="text-sm font-bold text-gray-900 mb-3 uppercase tracking-wide">
-                                    ETAPAS
-                                </h3>
-                                <div className="space-y-2">
-                                    {selectedMission.requirements.items.map((item, index) => {
-                                        console.log('🎨 Rendering item:', item.text, 'completed:', item.completed);
                                         return (
                                             <div
-                                                key={item.id}
-                                                onClick={() => {
-                                                    if (selectedMission.status !== 'completed' && selectedMission.status !== 'locked') {
-                                                        console.log('🖱️ Click on item:', item.id);
-                                                        toggleChecklistItem(selectedMission.id, item.id);
-                                                    }
-                                                }}
-                                                className={`
-                                                flex items-start gap-3 p-4 border-2 rounded-lg transition-all duration-200
-                                                ${item.completed
-                                                        ? 'bg-green-50 border-green-300'
-                                                        : 'bg-white border-gray-300 hover:border-gray-400 hover:shadow-sm'
-                                                    }
-                                                ${selectedMission.status !== 'completed' && selectedMission.status !== 'locked'
-                                                        ? 'cursor-pointer active:scale-[0.98]'
-                                                        : 'cursor-default'
-                                                    }
-                                            `}
+                                                key={mission.id}
+                                                onClick={() => !isLocked && selectMission(mission.id)}
+                                                className={cn(
+                                                    "relative overflow-hidden group rounded-xl border-2 transition-all duration-200 cursor-pointer p-3",
+                                                    isSelected
+                                                        ? "bg-primary/5 border-primary shadow-md ring-1 ring-primary/10 z-10"
+                                                        : "bg-white/50 border-white/40 hover:border-primary/30 hover:bg-white/80 hover:shadow-sm",
+                                                    isLocked ? "opacity-50 grayscale" : ""
+                                                )}
                                             >
-                                                {/* Checkbox */}
-                                                <div
-                                                    className="flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center mt-0.5 transition-all duration-200"
-                                                    style={{
-                                                        backgroundColor: item.completed ? '#22c55e' : '#ffffff',
-                                                        borderColor: item.completed ? '#22c55e' : '#d1d5db'
-                                                    }}
-                                                >
-                                                    {item.completed && (
-                                                        <svg
-                                                            className="w-3 h-3"
-                                                            style={{ color: '#ffffff' }}
-                                                            fill="none"
-                                                            strokeLinecap="round"
-                                                            strokeLinejoin="round"
-                                                            strokeWidth="3"
-                                                            viewBox="0 0 24 24"
-                                                            stroke="currentColor"
-                                                        >
-                                                            <path d="M5 13l4 4L19 7" />
-                                                        </svg>
-                                                    )}
-                                                </div>
+                                                <div className="flex items-start gap-3">
+                                                    <div className={cn(
+                                                        "w-10 h-10 rounded-lg flex items-center justify-center shrink-0 border",
+                                                        isCompleted ? "bg-emerald-500 text-white border-emerald-400" :
+                                                            isInProgress ? "bg-primary text-white border-primary/50" : "bg-muted text-muted-foreground border-border"
+                                                    )}>
+                                                        {isLocked ? <Lock size={16} /> :
+                                                            isCompleted ? <CheckCircle2 size={18} /> :
+                                                                <Trophy size={16} />}
+                                                    </div>
 
-                                                {/* Texto */}
-                                                <div className="flex-1">
-                                                    <div className="flex items-center gap-2">
-                                                        <span className={`
-                                                        text-xs font-bold transition-colors duration-200
-                                                        ${item.completed ? 'text-green-600' : 'text-gray-500'}
-                                                    `}>
-                                                            {index + 1}.
-                                                        </span>
-                                                        <span className={`
-                                                        text-sm font-medium transition-all duration-200
-                                                        ${item.completed ? 'text-green-700 line-through opacity-75' : 'text-gray-900'}
-                                                    `}>
-                                                            {item.text}
-                                                        </span>
-                                                        {item.required && (
-                                                            <span className="text-xs text-red-500 font-bold">*</span>
-                                                        )}
+                                                    <div className="flex-1 min-w-0 flex flex-col gap-2.5">
+                                                        <div className="flex items-start justify-between gap-2">
+                                                            <h3 className="font-bold text-foreground text-sm leading-tight flex-1">{mission.title}</h3>
+                                                            <div className="text-xs font-black text-primary whitespace-nowrap bg-primary/5 px-2 py-1 rounded-md border border-primary/10">
+                                                                +{mission.xpReward} XP
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="flex items-center gap-2">
+                                                            {isInProgress && (
+                                                                <Badge variant="outline" className="text-[10px] px-2 h-5 border-primary/30 text-primary uppercase font-bold">
+                                                                    Ativa
+                                                                </Badge>
+                                                            )}
+                                                            <Badge className={cn(
+                                                                "text-[10px] px-2 h-5 uppercase font-bold",
+                                                                mission.type === 'tutorial' ? "bg-blue-500 hover:bg-blue-600" :
+                                                                    mission.type === 'problema' ? "bg-rose-500 hover:bg-rose-600" : "bg-emerald-500 hover:bg-emerald-600"
+                                                            )}>
+                                                                {mission.type}
+                                                            </Badge>
+                                                            <div className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                                                                <Clock size={12} className="text-primary/60" /> {mission.estimatedTime}m
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 </div>
+
+                                                {isInProgress && (
+                                                    <div className="mt-3">
+                                                        <Progress
+                                                            value={(mission.requirements.items.filter(i => i.completed).length / mission.requirements.items.length) * 100}
+                                                            className="h-1 bg-primary/10"
+                                                        />
+                                                    </div>
+                                                )}
                                             </div>
                                         );
                                     })}
                                 </div>
-                                <p className="text-xs text-gray-500 mt-2">
-                                    * Etapas obrigatórias
-                                </p>
-                            </div>
+                            </ScrollArea>
+                        </div>
+                    </E4CEOCard>
+                </div>
 
-                            {/* Botões de Ação */}
-                            <div className="flex gap-3 pt-4 border-t border-gray-200">
-                                {/* Botão Ajuda */}
-                                <button
-                                    onClick={() => {
-                                        setShowHelp(!showHelp);
-                                        if (!showHelp && selectedMission) {
-                                            requestHelp(selectedMission.id);
-                                        }
-                                    }}
-                                    className="flex items-center gap-2 px-4 py-3 border-2 border-gray-300 rounded-lg text-sm font-bold text-gray-700 hover:border-gray-400 hover:shadow-md transition-all"
-                                >
-                                    <HelpCircle className="h-4 w-4" />
-                                    PRECISO DE AJUDA
-                                </button>
-
-                                {/* Botão Validar/Completar */}
-                                <button
-                                    onClick={handleCompleteMission}
-                                    disabled={!canComplete || selectedMission.status === 'completed' || isLoading}
-                                    className={`
-                                        flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-lg text-sm font-bold uppercase transition-all
-                                        ${canComplete && selectedMission.status !== 'completed'
-                                            ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-md hover:shadow-lg'
-                                            : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                                        }
-                                    `}
-                                >
-                                    {isLoading ? (
-                                        'VALIDANDO...'
-                                    ) : selectedMission.status === 'completed' ? (
-                                        <>
-                                            <CheckCircle2 className="h-4 w-4" />
-                                            MISSÃO CONCLUÍDA
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Trophy className="h-4 w-4" />
-                                            VALIDAR CONCLUSÃO
-                                        </>
-                                    )}
-                                </button>
-                            </div>
-
-                            {/* Painel de Ajuda */}
-                            {showHelp && selectedMission.helpContent && (
-                                <div className="bg-yellow-50 border-2 border-yellow-200 rounded-lg p-4 animate-in fade-in slide-in-from-top-2">
-                                    <div className="flex items-start gap-3">
-                                        <HelpCircle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
-                                        <div className="flex-1">
-                                            <h4 className="text-sm font-bold text-yellow-900 mb-2">
-                                                {selectedMission.helpContent.title}
-                                            </h4>
-                                            <ul className="space-y-2">
-                                                {selectedMission.helpContent.tips.map((tip, index) => (
-                                                    <li key={index} className="flex items-start gap-2 text-sm text-yellow-800">
-                                                        <ChevronRight className="h-4 w-4 flex-shrink-0 mt-0.5" />
-                                                        <span>{tip}</span>
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                            <p className="text-xs text-yellow-700 mt-3 font-medium">
-                                                💡 Ajuda gratuita - sem penalidade de XP
-                                            </p>
-                                        </div>
+                {/* Coluna Direita - Detalhes */}
+                <div className="lg:col-span-6 xl:col-span-7">
+                    {selectedMission ? (
+                        <E4CEOCard className="h-full flex flex-col p-6 border-white/20 shadow-2xl">
+                            <div className="flex items-start justify-between mb-6 pb-4 border-b border-gray-100">
+                                <div className="space-y-1">
+                                    <h2 className="text-2xl font-black text-gray-900 uppercase italic tracking-tighter">{selectedMission.title}</h2>
+                                    <div className="flex items-center gap-3 text-xs font-bold uppercase tracking-wider">
+                                        <Badge variant="outline" className="text-gray-500 border-gray-200 bg-gray-50">{selectedMission.category}</Badge>
+                                        <span className="flex items-center gap-1 text-gray-400"><Clock size={12} /> {selectedMission.estimatedTime} Minutos</span>
                                     </div>
                                 </div>
-                            )}
-                        </div>
+                                <div className="bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 rounded-xl p-3 text-center shrink-0 shadow-sm">
+                                    <Trophy className="h-5 w-5 text-primary mx-auto mb-1" />
+                                    <span className="text-base font-black text-primary">+{selectedMission.xpReward} XP</span>
+                                </div>
+                            </div>
+
+                            <div className="space-y-6 flex-1">
+                                <div>
+                                    <h3 className="text-xs font-black text-muted-foreground uppercase tracking-[0.2em] mb-3">Briefing da Operação</h3>
+                                    <div className="bg-muted/30 rounded-2xl p-4 border-l-4 border-primary shadow-inner">
+                                        <p className="text-sm text-foreground leading-relaxed font-medium italic">
+                                            "{selectedMission.description}"
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <h3 className="text-xs font-black text-muted-foreground uppercase tracking-[0.2em] mb-3">Objetivos Táticos</h3>
+                                    <div className="space-y-2.5">
+                                        {selectedMission.requirements.items.map((item) => (
+                                            <div
+                                                key={item.id}
+                                                onClick={() => {
+                                                    if (selectedMission.status !== 'completed' && selectedMission.status !== 'locked') {
+                                                        toggleChecklistItem(selectedMission.id, item.id);
+                                                    }
+                                                }}
+                                                className={cn(
+                                                    "flex items-center gap-3 p-4 rounded-xl border-2 transition-all",
+                                                    item.completed ? "bg-emerald-500/5 border-emerald-500/20" : "bg-muted/20 border-border/50 hover:border-primary/40",
+                                                    selectedMission.status !== 'completed' && selectedMission.status !== 'locked' ? "cursor-pointer active:scale-[0.99]" : ""
+                                                )}
+                                            >
+                                                <div className={cn(
+                                                    "w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-colors",
+                                                    item.completed ? "bg-emerald-500 border-emerald-500 text-white" : "bg-background border-border"
+                                                )}>
+                                                    {item.completed && <CheckCircle2 size={14} />}
+                                                </div>
+                                                <div className="flex-1">
+                                                    <span className={cn(
+                                                        "text-sm font-bold",
+                                                        item.completed ? "text-emerald-700/70 line-through" : "text-foreground"
+                                                    )}>
+                                                        {item.text}
+                                                    </span>
+                                                    {item.required && <span className="ml-2 text-rose-500 font-black">!</span>}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+
+
+                            <div className="flex gap-3 mt-4">
+                                <Button
+                                    variant="outline"
+                                    onClick={() => {
+                                        setShowHelp(!showHelp);
+                                        if (!showHelp) requestHelp(selectedMission.id);
+                                    }}
+                                    className="h-12 px-6 border-2 font-black uppercase tracking-widest text-xs rounded-xl"
+                                >
+                                    <HelpCircle className="mr-2 h-4 w-4" /> Mentoria
+                                </Button>
+                                <Button
+                                    onClick={handleCompleteMission}
+                                    disabled={!canComplete || selectedMission.status === 'completed' || isLoading}
+                                    className="flex-1 h-12 bg-primary text-primary-foreground hover:bg-primary/90 shadow-xl shadow-primary/20 font-black uppercase tracking-[0.2em] text-xs rounded-xl"
+                                >
+                                    {isLoading ? 'Sincronizando...' : selectedMission.status === 'completed' ? 'Missão Cumprida' : 'Extrair Recompensa'}
+                                </Button>
+                                {showHelp && selectedMission.helpContent && (
+                                    <div className="fixed bottom-32 right-8 max-w-sm bg-yellow-50 border-2 border-yellow-200 rounded-2xl p-6 shadow-2xl animate-in slide-in-from-bottom-4">
+                                        <div className="flex items-start gap-4">
+                                            <HelpCircle className="h-6 w-6 text-yellow-600 shrink-0" />
+                                            <div>
+                                                <h4 className="text-sm font-black text-yellow-900 uppercase mb-2">{selectedMission.helpContent.title}</h4>
+                                                <ul className="space-y-2">
+                                                    {selectedMission.helpContent.tips.map((tip, idx) => (
+                                                        <li key={idx} className="text-xs text-yellow-800 font-medium flex gap-2">
+                                                            <ChevronRight size={14} className="shrink-0" /> {tip}
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </E4CEOCard>
                     ) : (
-                        <div className="h-full flex items-center justify-center text-gray-500">
-                            <div className="text-center">
-                                <Trophy className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                                <p className="text-sm font-medium">Selecione uma missão para começar</p>
+                        <div className="h-full flex items-center justify-center">
+                            <div className="text-center opacity-30">
+                                <Trophy size={80} className="mx-auto mb-4" />
+                                <h3 className="text-xl font-black uppercase">Pronto para a Missão?</h3>
+                                <p className="text-sm font-bold">Selecione um alvo na lista tática</p>
                             </div>
                         </div>
                     )}
                 </div>
-            </div>
+            </div >
 
-            {/* Modal de Conclusão */}
-            {showCompletionModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-in fade-in">
-                    <div className="bg-white rounded-2xl p-8 max-w-md mx-4 text-center animate-in zoom-in">
-                        <div className="text-6xl mb-4">🎉</div>
-                        <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                            Missão Concluída!
-                        </h2>
-                        <p className="text-gray-600 mb-6">
-                            Parabéns! Você completou a missão{' '}
-                            <span className="font-bold">{selectedMission?.title}</span>
-                        </p>
-                        <div className="flex items-center justify-center gap-2 bg-blue-50 border-2 border-blue-200 rounded-lg px-6 py-4">
-                            <Trophy className="h-6 w-6 text-blue-600" />
-                            <span className="text-2xl font-bold text-blue-600">
+            {/* Modal de Conclusão Glassmorphism */}
+            {
+                showCompletionModal && (
+                    <div className="fixed inset-0 bg-background/80 backdrop-blur-md flex items-center justify-center z-50 animate-in fade-in">
+                        <E4CEOCard className="max-w-md w-full p-12 text-center border-primary/20 shadow-primary/10 animate-in zoom-in-95 duration-300">
+                            <div className="text-7xl mb-6">🏆</div>
+                            <h2 className="text-3xl font-black text-foreground mb-4 uppercase italic tracking-tighter">Missão Cumprida!</h2>
+                            <p className="text-muted-foreground font-medium mb-8">Excelente trabalho, operacional. Seus dados foram sincronizados com sucesso.</p>
+                            <div className="bg-primary text-white font-black text-2xl py-6 rounded-3xl shadow-2xl shadow-primary/30 tracking-[0.35em] inline-block px-12">
                                 +{completedMissionXp} XP
-                            </span>
-                        </div>
+                            </div>
+                        </E4CEOCard>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 }

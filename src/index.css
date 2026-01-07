@@ -45,16 +45,20 @@ html {
 
 body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  background: transparent;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
   min-height: 100vh;
   color: #1e293b;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Quando rodando dentro do Hub.App (em iframe), usar fundo transparente */
+body.hub-embedded {
+  background: transparent;
+}
+
 #root {
   min-height: 100vh;
-  background: transparent;
 }
 
 /* ==================== SCROLLBAR CUSTOM ==================== */

@@ -11,6 +11,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import type { Mission, MissionProgress } from '../types';
+import { missionRepository } from '../services';
+import { isSupabaseReady } from '../lib/supabase';
+import { useHubContext } from './useHubContext';
 
 // Chave para localStorage
 const STORAGE_KEY_MISSIONS = 'academy_missions';
@@ -175,6 +178,7 @@ interface UseMissionsReturn {
 }
 
 export function useMissions(): UseMissionsReturn {
+    const { context, isConnected } = useHubContext();
     const [missions, setMissions] = useState<Mission[]>(() => {
         const saved = localStorage.getItem(STORAGE_KEY_MISSIONS);
         if (saved) {
@@ -201,6 +205,53 @@ export function useMissions(): UseMissionsReturn {
         return new Map();
     });
     const [isLoading, setIsLoading] = useState(false);
+
+    // Carregar missões do PostgreSQL quando disponível
+    useEffect(() => {
+        const loadMissions = async () => {
+            const useMockData = import.meta.env.VITE_USE_MOCK_DATA === 'true';
+            const hasSupabase = isSupabaseReady();
+
+            if (!useMockData && hasSupabase && isConnected && context) {
+                try {
+                    console.log('🎯 [Academy] Carregando missões do PostgreSQL...');
+
+                    // Carregar missões
+                    const missionsData = await missionRepository.getMissions({
+                        tenantId: context.tenantId,
+                        userId: context.userId
+                    });
+
+                    if (missionsData.length > 0) {
+                        setMissions(missionsData);
+
+                        // Carregar progresso de cada missão
+                        const progressMap = new Map<string, MissionProgress>();
+                        for (const mission of missionsData) {
+                            const missionProgress = await missionRepository.getMissionProgress(
+                                {
+                                    tenantId: context.tenantId,
+                                    userId: context.userId
+                                },
+                                mission.id
+                            );
+
+                            if (missionProgress) {
+                                progressMap.set(mission.id, missionProgress);
+                            }
+                        }
+
+                        setProgress(progressMap);
+                    }
+                } catch (error) {
+                    console.error('❌ [Academy] Erro ao carregar missões do PostgreSQL:', error);
+                    console.log('📊 [Academy] Usando dados locais...');
+                }
+            }
+        };
+
+        loadMissions();
+    }, [isConnected, context]);
 
     // Salvar missões no localStorage quando mudar
     useEffect(() => {
@@ -359,39 +410,81 @@ export function useMissions(): UseMissionsReturn {
                 return { success: false, xpEarned: 0 };
             }
 
-            // Atualizar progresso da missão
-            setProgress(prev => {
-                const newProgress = new Map(prev);
-                const missionProgress = newProgress.get(missionId);
+            const useMockData = import.meta.env.VITE_USE_MOCK_DATA === 'true';
+            const hasSupabase = isSupabaseReady();
 
-                if (missionProgress) {
-                    newProgress.set(missionId, {
-                        ...missionProgress,
-                        status: 'completed',
-                        completedAt: new Date().toISOString(),
-                    });
-                }
+            if (!useMockData && hasSupabase && isConnected && context) {
+                // Usar PostgreSQL
+                console.log('🎯 [Academy] Completando missão via PostgreSQL...');
 
-                return newProgress;
-            });
+                const result = await missionRepository.completeMission(
+                    {
+                        tenantId: context.tenantId,
+                        userId: context.userId
+                    },
+                    missionId
+                );
 
-            // Atualizar status da missão
-            setMissions(prev => prev.map(m =>
-                m.id === missionId ? { ...m, status: 'completed' as const } : m
-            ));
+                // Atualizar estado local
+                setProgress(prev => {
+                    const newProgress = new Map(prev);
+                    const missionProgress = newProgress.get(missionId);
 
-            // Simular delay de API
-            await new Promise(resolve => setTimeout(resolve, 500));
+                    if (missionProgress) {
+                        newProgress.set(missionId, {
+                            ...missionProgress,
+                            status: 'completed',
+                            completedAt: new Date().toISOString(),
+                            xpEarned: result.xpEarned
+                        });
+                    }
 
-            setIsLoading(false);
-            return { success: true, xpEarned: mission.xpReward };
+                    return newProgress;
+                });
 
+                setMissions(prev => prev.map(m =>
+                    m.id === missionId ? { ...m, status: 'completed' as const } : m
+                ));
+
+                setIsLoading(false);
+                return { success: true, xpEarned: result.xpEarned };
+            } else {
+                // Usar mock (localStorage)
+                console.log('🎯 [Academy] Completando missão (mock)...');
+
+                // Atualizar progresso da missão
+                setProgress(prev => {
+                    const newProgress = new Map(prev);
+                    const missionProgress = newProgress.get(missionId);
+
+                    if (missionProgress) {
+                        newProgress.set(missionId, {
+                            ...missionProgress,
+                            status: 'completed',
+                            completedAt: new Date().toISOString(),
+                        });
+                    }
+
+                    return newProgress;
+                });
+
+                // Atualizar status da missão
+                setMissions(prev => prev.map(m =>
+                    m.id === missionId ? { ...m, status: 'completed' as const } : m
+                ));
+
+                // Simular delay de API
+                await new Promise(resolve => setTimeout(resolve, 500));
+
+                setIsLoading(false);
+                return { success: true, xpEarned: mission.xpReward };
+            }
         } catch (error) {
-            console.error('Erro ao completar missão:', error);
+            console.error('❌ [Academy] Erro ao completar missão:', error);
             setIsLoading(false);
             return { success: false, xpEarned: 0 };
         }
-    }, [missions]);
+    }, [missions, isConnected, context]);
 
     // Resetar progresso (para desenvolvimento/debug)
     const resetProgress = useCallback(() => {

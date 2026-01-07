@@ -1,12 +1,13 @@
-/**
- * Academy Module - Courses Tab
- *
- * Aba de cursos com lista de aulas e filtros por nível
- */
-
-import { Search } from 'lucide-react';
+import { Search, PlayCircle, BookOpen, Play } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { VideoPlayer, LessonStatus } from '../VideoPlayer';
+import { E4CEOCard } from '../design-system';
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import { Badge } from '../ui/badge';
+import { Input } from '../ui/input';
+import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
+import { ScrollArea } from '../ui/scroll-area';
+import { cn } from '../../lib/utils';
 
 interface Lesson {
     id: string;
@@ -49,7 +50,8 @@ export function CoursesTab() {
 
     // Estado da última aula acessada
     const [lastLessonId, setLastLessonId] = useState<string | null>(() => {
-        return localStorage.getItem('academy_last_lesson');
+        const saved = localStorage.getItem('academy_last_lesson');
+        return saved;
     });
 
     // Salvar última aula sempre que mudar
@@ -112,139 +114,137 @@ export function CoursesTab() {
     }
 
     return (
-        <div className="h-full p-4">
-            {/* Título */}
-            <h1 className="text-xl font-bold text-gray-900 mb-6 text-center tracking-wide">ABA CURSOS</h1>
+        <div className="h-full space-y-6">
+            <h1 className="text-3xl font-extrabold text-foreground tracking-tight text-center lg:text-left">Explorar Cursos</h1>
 
-            {/* Layout com 2 colunas */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4" style={{ height: 'calc(100% - 70px)' }}>
-                {/* Coluna Esquerda - Lista de Aulas */}
-                <div className="flex flex-col gap-3 h-full">
-                    {/* Seletor de Usuário/Avatar */}
-                    <div className="bg-white border-2 border-gray-300 rounded-xl p-3 flex items-center gap-3 shadow-sm">
-                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 border-2 border-gray-300 flex items-center justify-center">
-                            <span className="text-xl">👤</span>
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                {/* Coluna Esquerda - Lista de Aulas (7 colunas) */}
+                <div className="lg:col-span-7 flex flex-col gap-6">
+                    <E4CEOCard size="none" className="flex items-center gap-3 bg-primary/5 border-primary/20 py-2 px-3">
+                        <Avatar className="h-10 w-10 border-2 border-primary/30">
+                            <AvatarImage src="https://via.placeholder.com/60" alt="Avatar" />
+                            <AvatarFallback>JO</AvatarFallback>
+                        </Avatar>
+                        <div className="leading-tight">
+                            <h2 className="text-sm font-bold text-foreground">JOAO</h2>
+                            <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Explorador Academy</p>
                         </div>
-                        <div className="flex-1">
-                            <p className="text-sm font-bold text-gray-900 uppercase tracking-wide">JOAO</p>
-                            <p className="text-xs text-gray-600 font-medium">EXPLORADOR/TA</p>
-                        </div>
-                    </div>
+                    </E4CEOCard>
 
-                    {/* Lista de Aulas */}
-                    <div className="flex-1 overflow-y-auto space-y-2 pr-1">
-                        {filteredLessons.map((lesson) => (
-                            <div
-                                key={lesson.id}
-                                onClick={() => handleLessonClick(lesson)}
-                                className="bg-white border-2 border-gray-300 rounded-xl p-4 flex items-center justify-between hover:border-gray-400 hover:shadow-md transition-all cursor-pointer group"
-                            >
-                                <span className="text-sm font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
-                                    {lesson.title.split(' - ')[0]}
-                                </span>
-                                <span className="text-sm font-bold text-gray-700">{lesson.xp} XP</span>
+                    <Card className="border-border/50 shadow-xl overflow-hidden">
+                        <CardHeader className="bg-muted/30 pb-4 border-b">
+                            <div className="flex items-center justify-between">
+                                <CardTitle className="text-xl flex items-center gap-2">
+                                    <BookOpen className="h-5 w-5 text-primary" />
+                                    Módulo: Introdução ao Webhook
+                                </CardTitle>
+                                <Badge variant="secondary" className="px-3">{filteredLessons.length} Aulas</Badge>
                             </div>
-                        ))}
-                    </div>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                            <ScrollArea className="h-[450px]">
+                                <div className="p-4 space-y-3">
+                                    {filteredLessons.map((lesson) => (
+                                        <div
+                                            key={lesson.id}
+                                            onClick={() => handleLessonClick(lesson)}
+                                            className={cn(
+                                                "group flex items-center justify-between p-4 rounded-xl border-2 transition-all cursor-pointer",
+                                                "hover:bg-primary/5 hover:border-primary/40 active:scale-[0.99]",
+                                                lesson.status === 'completed' ? "bg-emerald-50/30 border-emerald-100" : "bg-background border-border"
+                                            )}
+                                        >
+                                            <div className="flex items-center gap-4">
+                                                <div className={cn(
+                                                    "w-10 h-10 rounded-lg flex items-center justify-center transition-transform group-hover:scale-110",
+                                                    lesson.status === 'completed' ? "bg-emerald-500 text-white" : "bg-muted text-muted-foreground"
+                                                )}>
+                                                    <PlayCircle className="h-5 w-5" />
+                                                </div>
+                                                <div>
+                                                    <p className="font-bold text-foreground group-hover:text-primary transition-colors">
+                                                        {lesson.title.split(' - ')[0]}
+                                                    </p>
+                                                    <p className="text-xs text-muted-foreground">Conteúdo exclusivo Academy</p>
+                                                </div>
+                                            </div>
+                                            <Badge variant="outline" className="font-bold text-primary">{lesson.xp} XP</Badge>
+                                        </div>
+                                    ))}
+                                </div>
+                            </ScrollArea>
+                        </CardContent>
+                    </Card>
                 </div>
 
-                {/* Coluna Direita - Busca, Filtros e Card Motivacional */}
-                <div className="flex flex-col gap-4 h-full">
-                    {/* Busca */}
-                    <div className="bg-white border-2 border-gray-300 rounded-xl p-4 shadow-sm">
-                        <div className="relative">
-                            <input
-                                type="text"
-                                placeholder="BUSCAR CURSOS E AULAS ESPECÍFICAS"
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full px-4 py-3 pr-12 border-2 border-gray-300 rounded-lg text-sm font-medium placeholder:text-gray-500 placeholder:font-normal focus:outline-none focus:border-blue-400 transition-colors"
-                            />
-                            <Search className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                {/* Coluna Direita (5 colunas) */}
+                <div className="lg:col-span-5 flex flex-col gap-3">
+                    {/* Busca e Filtros */}
+                    <div className="space-y-2">
+                        <E4CEOCard size="none" className="p-2.5">
+                            <div className="relative">
+                                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                                <Input
+                                    placeholder="Buscar conteúdo..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="pl-8 h-8 text-sm bg-background/50 border-border/50"
+                                />
+                            </div>
+                        </E4CEOCard>
+
+                        <div className="grid grid-cols-3 gap-2">
+                            {(['not_started', 'in_progress', 'completed'] as FilterType[]).map((filter) => (
+                                <button
+                                    key={filter}
+                                    onClick={() => setActiveFilter(filter)}
+                                    className={cn(
+                                        "px-2 py-3 rounded-xl border-2 text-[10px] font-black uppercase tracking-widest transition-all",
+                                        activeFilter === filter
+                                            ? "bg-primary text-white border-primary shadow-lg shadow-primary/20 scale-105"
+                                            : "bg-background text-muted-foreground border-border/50 hover:border-primary/40"
+                                    )}
+                                >
+                                    {filter === 'not_started' ? 'Novas' : filter === 'in_progress' ? 'Em Curso' : 'Concluídas'}
+                                </button>
+                            ))}
                         </div>
                     </div>
 
-                    {/* Filtros por Nível */}
-                    <div className="bg-white border-2 border-gray-300 rounded-xl p-5 shadow-sm">
-                        <h3 className="text-base font-bold text-gray-900 mb-4 text-center italic tracking-wide">NÍVEL</h3>
-                        <div className="grid grid-cols-3 gap-3">
-                            <button
-                                onClick={() => setActiveFilter('not_started')}
-                                className={`
-                                    border-2 rounded-xl p-5 text-xs font-bold text-gray-800 uppercase tracking-wide
-                                    transition-all hover:border-gray-400 hover:shadow-md
-                                    ${activeFilter === 'not_started'
-                                        ? 'border-blue-400 bg-blue-50 text-blue-700 shadow-md'
-                                        : 'border-gray-300 bg-white'
-                                    }
-                                `}
-                            >
-                                NÃO INICIADOS
-                            </button>
-                            <button
-                                onClick={() => setActiveFilter('in_progress')}
-                                className={`
-                                    border-2 rounded-xl p-5 text-xs font-bold text-gray-800 uppercase tracking-wide
-                                    transition-all hover:border-gray-400 hover:shadow-md
-                                    ${activeFilter === 'in_progress'
-                                        ? 'border-blue-400 bg-blue-50 text-blue-700 shadow-md'
-                                        : 'border-gray-300 bg-white'
-                                    }
-                                `}
-                            >
-                                EM PROGRESSO
-                            </button>
-                            <button
-                                onClick={() => setActiveFilter('completed')}
-                                className={`
-                                    border-2 rounded-xl p-5 text-xs font-bold text-gray-800 uppercase tracking-wide
-                                    transition-all hover:border-gray-400 hover:shadow-md
-                                    ${activeFilter === 'completed'
-                                        ? 'border-blue-400 bg-blue-50 text-blue-700 shadow-md'
-                                        : 'border-gray-300 bg-white'
-                                    }
-                                `}
-                            >
-                                CONCLUÍDOS
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Card Motivacional */}
-                    <div
+                    {/* Card Motivacional / Proteger Diamond */}
+                    <E4CEOCard
                         onClick={() => {
-                            // Tenta encontrar a última aula, ou fallback para lógica inteligente
                             const lastLesson = lessons.find(l => l.id === lastLessonId);
                             const inProgressLesson = lessons.find(l => l.status === 'in_progress');
                             const firstAvailableLesson = lessons.find(l => l.status === 'not_started') || lessons[0];
-
                             handleLessonClick(lastLesson || inProgressLesson || firstAvailableLesson);
                         }}
-                        className="flex-1 bg-white border-2 border-gray-300 rounded-xl p-6 cursor-pointer hover:border-gray-400 hover:shadow-lg transition-all shadow-sm group"
+                        className="flex-1 flex flex-col items-center justify-center text-center p-8 bg-gradient-to-br from-indigo-500/10 to-violet-500/10 border-indigo-200/50 cursor-pointer group"
                     >
-                        <h3 className="text-base font-bold text-gray-900 mb-6 text-center tracking-wide">CONTINUE A GANHAR XP</h3>
-                        <div className="flex flex-col items-center justify-center h-full gap-6">
-                            {/* Ícone diamante */}
-                            <div className="relative w-36 h-36">
-                                <div className="w-full h-full border-4 border-gray-300 rounded-2xl transform rotate-45 bg-gradient-to-br from-blue-50 to-purple-50 group-hover:from-blue-100 group-hover:to-purple-100 transition-all group-hover:scale-110 shadow-lg"></div>
-                                <div className="absolute inset-0 flex items-center justify-center">
-                                    <span className="text-4xl transform -rotate-45">💎</span>
+                        <h3 className="text-lg font-black text-foreground mb-8 tracking-tighter uppercase italic">TURBO XP BOOST</h3>
+
+                        <div className="relative mb-8">
+                            <div className="w-40 h-40 border-4 border-primary/30 rounded-full transition-all duration-300 group-hover:scale-110 group-hover:border-primary/50 bg-gradient-to-br from-primary/20 to-primary/5 backdrop-blur-xl shadow-2xl flex items-center justify-center">
+                                <div className="w-24 h-24 bg-primary rounded-full flex items-center justify-center shadow-xl group-hover:shadow-2xl transition-all">
+                                    <Play className="h-12 w-12 text-white fill-white ml-1" />
                                 </div>
                             </div>
-                            <div className="text-center">
-                                <p className="text-sm text-gray-600 font-medium mb-1">
-                                    {lastLessonId
-                                        ? "Continuar de onde parou:"
-                                        : "Comece sua jornada!"}
-                                </p>
-                                {lastLessonId && (
-                                    <p className="text-xs font-bold text-blue-600 uppercase tracking-wide max-w-[200px] mx-auto truncate">
-                                        {lessons.find(l => l.id === lastLessonId)?.title.split(' - ')[0]}
-                                    </p>
-                                )}
+                            <div className="absolute -top-2 -right-2 w-12 h-12 bg-emerald-500 rounded-full flex items-center justify-center text-white font-black shadow-lg animate-bounce">
+                                2X
                             </div>
                         </div>
-                    </div>
+
+                        <div className="space-y-2">
+                            <p className="text-sm font-bold text-muted-foreground">
+                                {lastLessonId ? "PRONTO PARA CONTINUAR?" : "COMECE AGORA!"}
+                            </p>
+                            {lastLessonId && (
+                                <Badge className="bg-primary hover:bg-primary px-4 py-1.5 text-xs font-black">
+                                    {lessons.find(l => l.id === lastLessonId)?.title.split(' - ')[0]}
+                                </Badge>
+                            )}
+                        </div>
+                    </E4CEOCard>
                 </div>
             </div>
         </div>

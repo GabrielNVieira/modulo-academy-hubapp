@@ -8,14 +8,13 @@
  * - Streak card
  */
 
-import type { UserProgress, UserStats, Streak } from '../../types';
-
-interface ProgressTabProps {
-    progress: UserProgress | null;
-    stats: UserStats | null;
-    streak: Streak | null;
-    isLoading: boolean;
-}
+import { E4CEOCard } from '../design-system';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
+import { Progress } from '../ui/progress';
+import { Badge } from '../ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
+import { Separator } from '../ui/separator';
+import { GraduationCap } from 'lucide-react';
 
 export function ProgressTab({ progress, stats, isLoading }: ProgressTabProps) {
     if (isLoading) {
@@ -25,154 +24,117 @@ export function ProgressTab({ progress, stats, isLoading }: ProgressTabProps) {
     if (!progress || !stats) {
         return (
             <div className="flex items-center justify-center h-64">
-                <p className="text-gray-500">Nenhum dado de progresso encontrado.</p>
+                <p className="text-muted-foreground font-medium">Nenhum dado de progresso encontrado.</p>
             </div>
         );
     }
 
     return (
-        <div className="h-full p-4">
+        <div className="h-full space-y-6">
             {/* Título */}
-            <h1 className="text-2xl font-bold text-gray-900 mb-4 text-center">ABA PROGRESSO</h1>
+            <h1 className="text-3xl font-extrabold text-foreground tracking-tight text-center lg:text-left">Dashboard de Progresso</h1>
 
             {/* Layout com 2 colunas */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4" style={{ height: 'calc(100% - 60px)' }}>
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 {/* Coluna Esquerda */}
-                <div className="lg:col-span-4 flex flex-col gap-3 h-full">
-                    {/* Card Principal - Engloba Avatar + Estatísticas */}
-                    <div className="bg-white border-2 border-gray-300 rounded-lg p-4">
-                        {/* Seção Avatar + Nível + XP */}
-                        <div className="flex gap-4 mb-6">
-                            {/* Avatar */}
-                            <div className="flex-shrink-0">
-                                <div className="w-16 h-16 rounded-full bg-gray-200 border-2 border-gray-400 overflow-hidden">
-                                    <img
-                                        src="https://via.placeholder.com/64"
-                                        alt="Avatar"
-                                        className="w-full h-full object-cover"
-                                    />
+                <div className="lg:col-span-4 flex flex-col gap-6">
+                    {/* Card Principal - Avatar + Nível + XP */}
+                    <E4CEOCard className="relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                            <GraduationCap size={80} />
+                        </div>
+
+                        <div className="flex flex-col gap-6 relative z-10">
+                            {/* Perfil */}
+                            <div className="flex items-center gap-4">
+                                <Avatar className="h-20 w-20 border-4 border-primary/20 ring-4 ring-background shadow-xl">
+                                    <AvatarImage src="https://via.placeholder.com/80" alt="Avatar" />
+                                    <AvatarFallback>UN</AvatarFallback>
+                                </Avatar>
+                                <div>
+                                    <Badge variant="outline" className="mb-1 border-primary/30 text-primary bg-primary/5">Nível {progress?.level || 1}</Badge>
+                                    <h2 className="text-xl font-bold text-foreground">Aventureiro</h2>
                                 </div>
-                                <p className="text-xs text-blue-600 font-semibold mt-1 text-center">Avatar</p>
                             </div>
 
-                            {/* Nível e XP */}
-                            <div className="flex-1 space-y-3">
-                                {/* Nível */}
-                                <div>
-                                    <p className="text-sm font-semibold text-blue-600 mb-1">Nível</p>
-                                    <div className="w-full h-2 bg-blue-100 rounded-full overflow-hidden">
-                                        <div className="h-full bg-blue-500" style={{ width: '60%' }}></div>
+                            <Separator className="bg-border/50" />
+
+                            {/* Barras de Progresso */}
+                            <div className="space-y-4">
+                                <div className="space-y-2">
+                                    <div className="flex justify-between text-sm font-medium">
+                                        <span className="text-primary flex items-center gap-1.5">
+                                            <div className="w-2 h-2 rounded-full bg-primary" />
+                                            Progresso Nível
+                                        </span>
+                                        <span className="text-foreground">60%</span>
                                     </div>
+                                    <Progress value={60} className="h-2.5 bg-primary/10" />
                                 </div>
 
-                                {/* XP */}
-                                <div>
-                                    <p className="text-sm font-semibold text-green-600 mb-1">XP</p>
-                                    <div className="w-full h-2 bg-green-100 rounded-full overflow-hidden">
-                                        <div className="h-full bg-green-500" style={{ width: '75%' }}></div>
+                                <div className="space-y-2">
+                                    <div className="flex justify-between text-sm font-medium">
+                                        <span className="text-emerald-500 flex items-center gap-1.5">
+                                            <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                                            Experiência (XP)
+                                        </span>
+                                        <span className="text-foreground">75%</span>
                                     </div>
+                                    <Progress value={75} className="h-2.5 bg-emerald-500/10" indicatorClassName="bg-emerald-500" />
                                 </div>
                             </div>
                         </div>
+                    </E4CEOCard>
 
-                        {/* Seção Estatísticas */}
-                        <div className="grid grid-cols-3 gap-3">
-                            {/* Card 1 - Cursos */}
-                            <div className="bg-white border-2 border-gray-300 rounded-lg p-3 flex flex-col items-center">
-                                <div className="text-center mb-2">
-                                    <p className="text-xs font-semibold text-gray-700">4-8</p>
-                                    <p className="text-xs font-semibold text-gray-700">Cursos</p>
-                                </div>
-                                <div className="w-0.5 h-4 bg-gray-300"></div>
-                                <div className="bg-white border-2 border-gray-300 rounded px-4 py-2 mt-2 min-w-[60px]">
-                                    <p className="text-xs font-bold text-gray-900 text-center">Curso</p>
-                                </div>
-                            </div>
-
-                            {/* Card 2 - Missões */}
-                            <div className="bg-white border-2 border-gray-300 rounded-lg p-3 flex flex-col items-center">
-                                <div className="text-center mb-2">
-                                    <p className="text-xs font-semibold text-gray-700">12</p>
-                                    <p className="text-xs font-semibold text-gray-700">Missões</p>
-                                </div>
-                                <div className="w-0.5 h-4 bg-gray-300"></div>
-                                <div className="bg-white border-2 border-gray-300 rounded px-2 py-2 mt-2 w-full max-w-[90px] mx-auto">
-                                    <p className="text-[9px] font-bold text-gray-900 text-center break-words leading-tight">Próxima missão</p>
-                                </div>
-                            </div>
-
-                            {/* Card 3 - Conquistas */}
-                            <div className="bg-white border-2 border-gray-300 rounded-lg p-3 flex flex-col items-center">
-                                <div className="text-center mb-2">
-                                    <p className="text-xs font-semibold text-gray-700">5</p>
-                                    <p className="text-xs font-semibold text-gray-700">Conquistas</p>
-                                </div>
-                                <div className="w-0.5 h-4 bg-gray-300"></div>
-                                <div className="bg-white border-2 border-gray-300 rounded px-2 py-2 mt-2 w-full max-w-[90px] mx-auto">
-                                    <p className="text-[9px] font-bold text-gray-900 text-center break-words leading-tight">Conquista atual</p>
-                                </div>
-                            </div>
-                        </div>
+                    {/* Estatísticas Grid */}
+                    <div className="grid grid-cols-3 gap-3">
+                        <E4CEOCard size="small" className="flex flex-col items-center justify-center text-center p-3">
+                            <span className="text-lg font-bold text-foreground">4/8</span>
+                            <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Cursos</span>
+                        </E4CEOCard>
+                        <E4CEOCard size="small" className="flex flex-col items-center justify-center text-center p-3">
+                            <span className="text-lg font-bold text-foreground">12</span>
+                            <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Missões</span>
+                        </E4CEOCard>
+                        <E4CEOCard size="small" className="flex flex-col items-center justify-center text-center p-3">
+                            <span className="text-lg font-bold text-foreground">5</span>
+                            <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Badges</span>
+                        </E4CEOCard>
                     </div>
 
-                    {/* Card Dias Consecutivos */}
-                    <div className="bg-gradient-to-br from-orange-50 to-red-50 border-2 border-orange-200 rounded-lg p-6 flex-1 shadow-lg">
-                        <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                            <span className="text-2xl">🔥</span>
-                            Dias consecutivos
-                        </h3>
-
-                        {/* Streak Atual */}
-                        <div className="flex items-center justify-center mb-6 bg-white/80 rounded-2xl p-6 shadow-md">
-                            <div className="text-center">
-                                <div className="text-7xl mb-3 animate-pulse">🔥</div>
-                                <p className="text-5xl font-black bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent mb-2">7</p>
-                                <p className="text-sm font-semibold text-gray-600 uppercase tracking-wide">dias de sequência</p>
-                            </div>
+                    {/* Card Streak */}
+                    <E4CEOCard className="bg-gradient-to-br from-orange-500/10 to-rose-500/10 border-orange-200/50 shadow-orange-500/5">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="font-bold text-foreground flex items-center gap-2">
+                                <span className="text-xl">🔥</span>
+                                Sequência
+                            </h3>
+                            <Badge className="bg-orange-500 text-white border-0">Ativo</Badge>
                         </div>
 
-                        {/* Recordes */}
-                        <div className="space-y-3">
-                            {/* Recorde de dias */}
-                            <div className="flex items-center justify-between p-4 bg-white/80 rounded-xl shadow-sm hover:shadow-md transition-shadow border border-orange-100">
-                                <div className="flex items-center gap-2">
-                                    <span className="text-xl">🏆</span>
-                                    <span className="text-sm font-semibold text-gray-700">Recorde de dias</span>
-                                </div>
-                                <span className="text-xl font-bold text-orange-600">15</span>
-                            </div>
-
-                            {/* Recorde semanal */}
-                            <div className="flex items-center justify-between p-4 bg-white/80 rounded-xl shadow-sm hover:shadow-md transition-shadow border border-orange-100">
-                                <div className="flex items-center gap-2">
-                                    <span className="text-xl">📅</span>
-                                    <span className="text-sm font-semibold text-gray-700">Recorde semanal</span>
-                                </div>
-                                <span className="text-xl font-bold text-orange-600">7/7</span>
-                            </div>
-
-                            {/* Recorde mensal */}
-                            <div className="flex items-center justify-between p-4 bg-white/80 rounded-xl shadow-sm hover:shadow-md transition-shadow border border-orange-100">
-                                <div className="flex items-center gap-2">
-                                    <span className="text-xl">🗓️</span>
-                                    <span className="text-sm font-semibold text-gray-700">Recorde mensal</span>
-                                </div>
-                                <span className="text-xl font-bold text-orange-600">28/30</span>
-                            </div>
+                        <div className="flex flex-col items-center justify-center py-4 bg-background/40 backdrop-blur-sm rounded-2xl border border-white/20 shadow-inner">
+                            <div className="text-5xl mb-1 animate-streak-fire">🔥</div>
+                            <div className="text-4xl font-black text-orange-500">7</div>
+                            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-1">Dias Consecutivos</div>
                         </div>
-                    </div>
+                    </E4CEOCard>
                 </div>
 
-                {/* Coluna Direita */}
-                <div className="lg:col-span-8 h-full">
-                    <div className="bg-white border-2 border-gray-300 rounded-lg relative overflow-hidden h-full flex items-center justify-center">
-                        {/* Mensagem de desenvolvimento futuro */}
-                        <div className="text-center p-8">
-                            <div className="text-6xl mb-4">🚧</div>
-                            <h3 className="text-xl font-bold text-gray-800 mb-2">Árvore de Progresso</h3>
-                            <p className="text-gray-600">Este recurso será desenvolvido futuramente</p>
+                {/* Coluna Direita - Árvore de Progresso */}
+                <div className="lg:col-span-8">
+                    <E4CEOCard className="h-full min-h-[400px] flex items-center justify-center bg-background/50 border-dashed border-2 relative group">
+                        <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl" />
+                        <div className="text-center space-y-4 relative z-10">
+                            <div className="w-20 h-20 bg-muted rounded-full flex items-center justify-center mx-auto mb-2 text-3xl opacity-50">
+                                🌳
+                            </div>
+                            <h3 className="text-xl font-bold text-foreground">Árvore de Progresso</h3>
+                            <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                                Visualize sua jornada de aprendizado e desbloqueie novas habilidades conforme avança nos cursos.
+                            </p>
+                            <Badge variant="secondary" className="px-4 py-1">Em Breve</Badge>
                         </div>
-                    </div>
+                    </E4CEOCard>
                 </div>
             </div>
         </div>

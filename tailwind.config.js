@@ -8,45 +8,62 @@ export default {
     theme: {
         extend: {
             colors: {
-                // Academy Theme Colors
+                border: "hsl(var(--border))",
+                input: "hsl(var(--input))",
+                ring: "hsl(var(--ring))",
+                background: "hsl(var(--background))",
+                foreground: "hsl(var(--foreground))",
                 primary: {
-                    DEFAULT: '#06b6d4', // Ciano
-                    50: '#ecfeff',
-                    100: '#cffafe',
-                    200: '#a5f3fc',
-                    300: '#67e8f9',
-                    400: '#22d3ee',
-                    500: '#06b6d4',
-                    600: '#0891b2',
-                    700: '#0e7490',
-                    800: '#155e75',
-                    900: '#164e63',
+                    DEFAULT: "hsl(var(--primary))",
+                    foreground: "hsl(var(--primary-foreground))",
+                    // Legacy Academy Colors (mapped to variables)
+                    50: '#f5f7ff',
+                    100: '#ebf0ff',
+                    200: '#d6e0ff',
+                    300: '#adc2ff',
+                    400: '#8ba9ff',
+                    500: '#5983ff',
+                    600: '#3a5acc',
+                    700: '#2d4299',
+                    800: '#1f2e66',
+                    900: '#111933',
+                },
+                secondary: {
+                    DEFAULT: "hsl(var(--secondary))",
+                    foreground: "hsl(var(--secondary-foreground))",
+                },
+                destructive: {
+                    DEFAULT: "hsl(var(--destructive))",
+                    foreground: "hsl(var(--destructive-foreground))",
+                },
+                muted: {
+                    DEFAULT: "hsl(var(--muted))",
+                    foreground: "hsl(var(--muted-foreground))",
                 },
                 accent: {
-                    DEFAULT: '#7c3aed', // Roxo
-                    50: '#f5f3ff',
-                    100: '#ede9fe',
-                    200: '#ddd6fe',
-                    300: '#c4b5fd',
-                    400: '#a78bfa',
-                    500: '#8b5cf6',
-                    600: '#7c3aed',
-                    700: '#6d28d9',
-                    800: '#5b21b6',
-                    900: '#4c1d95',
+                    DEFAULT: "hsl(var(--accent))",
+                    foreground: "hsl(var(--accent-foreground))",
                 },
-                // Níveis de Progressão
+                popover: {
+                    DEFAULT: "hsl(var(--popover))",
+                    foreground: "hsl(var(--popover-foreground))",
+                },
+                card: {
+                    DEFAULT: "hsl(var(--card))",
+                    foreground: "hsl(var(--card-foreground))",
+                },
+                // Níveis de Progressão (Legacy support)
                 level: {
-                    1: '#06b6d4', // Explorador - Ciano
-                    2: '#0891b2', // Conhecedor - Ciano médio
-                    3: '#0e7490', // Especialista - Ciano escuro
-                    4: '#164e63', // Mestre - Ciano muito escuro
+                    1: 'var(--color-level-1)',
+                    2: 'var(--color-level-2)',
+                    3: 'var(--color-level-3)',
+                    4: 'var(--color-level-4)',
                 },
                 // Status
-                success: '#22c55e',
-                warning: '#f59e0b',
-                error: '#ef4444',
-                info: '#3b82f6',
+                success: 'var(--color-success)',
+                warning: 'var(--color-warning)',
+                error: 'var(--color-error)',
+                info: 'var(--color-info)',
             },
             fontFamily: {
                 sans: ['Inter', 'system-ui', 'sans-serif'],
@@ -73,8 +90,8 @@ export default {
                     '100%': { backgroundPosition: '200% 0' },
                 },
                 glow: {
-                    '0%': { boxShadow: '0 0 5px rgba(6, 182, 212, 0.5)' },
-                    '100%': { boxShadow: '0 0 20px rgba(6, 182, 212, 0.8)' },
+                    '0%': { boxShadow: '0 0 5px rgba(89, 131, 255, 0.5)' },
+                    '100%': { boxShadow: '0 0 20px rgba(89, 131, 255, 0.8)' },
                 },
                 float: {
                     '0%, 100%': { transform: 'translateY(0)' },

@@ -8,6 +8,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useHubContext } from './useHubContext';
 import type { UserProgress, UserStats, Streak, Level } from '../types';
+import { progressRepository } from '../services';
+import { isSupabaseReady } from '../lib/supabase';
 
 // Dados mockados para desenvolvimento
 const MOCK_PROGRESS: UserProgress = {
@@ -64,6 +66,14 @@ interface UseProgressReturn {
     addXp: (amount: number, source: string) => Promise<{ leveledUp: boolean; newLevel?: number }>;
 }
 
+// Níveis definidos como constante global para evitar recreação
+const LEVELS: Level[] = [
+    { id: 'level-1', levelNumber: 1, name: 'Explorador', color: '#06b6d4', icon: '🔍', xpRequired: 0, xpRange: { min: 0, max: 499 } },
+    { id: 'level-2', levelNumber: 2, name: 'Conhecedor', color: '#0891b2', icon: '📚', xpRequired: 500, xpRange: { min: 500, max: 1499 } },
+    { id: 'level-3', levelNumber: 3, name: 'Especialista', color: '#0e7490', icon: '🎯', xpRequired: 1500, xpRange: { min: 1500, max: 3499 } },
+    { id: 'level-4', levelNumber: 4, name: 'Mestre', color: '#164e63', icon: '👑', xpRequired: 3500, xpRange: { min: 3500, max: 999999 } }
+];
+
 export function useProgress(): UseProgressReturn {
     const { context, isConnected } = useHubContext();
     const [progress, setProgress] = useState<UserProgress | null>(null);
@@ -72,20 +82,12 @@ export function useProgress(): UseProgressReturn {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    // Níveis padrão
-    const levels: Level[] = [
-        { id: 'level-1', levelNumber: 1, name: 'Explorador', color: '#06b6d4', icon: '🔍', xpRequired: 0, xpRange: { min: 0, max: 499 } },
-        { id: 'level-2', levelNumber: 2, name: 'Conhecedor', color: '#0891b2', icon: '📚', xpRequired: 500, xpRange: { min: 500, max: 1499 } },
-        { id: 'level-3', levelNumber: 3, name: 'Especialista', color: '#0e7490', icon: '🎯', xpRequired: 1500, xpRange: { min: 1500, max: 3499 } },
-        { id: 'level-4', levelNumber: 4, name: 'Mestre', color: '#164e63', icon: '👑', xpRequired: 3500, xpRange: { min: 3500, max: 999999 } }
-    ];
-
     const currentLevel = progress
-        ? levels.find(l => l.levelNumber === progress.currentLevel) || levels[0]
+        ? LEVELS.find(l => l.levelNumber === progress.currentLevel) || LEVELS[0]
         : null;
 
     const nextLevel = currentLevel && currentLevel.levelNumber < 4
-        ? levels.find(l => l.levelNumber === currentLevel.levelNumber + 1) || null
+        ? LEVELS.find(l => l.levelNumber === currentLevel.levelNumber + 1) || null
         : null;
 
     const fetchProgress = useCallback(async () => {
@@ -93,19 +95,79 @@ export function useProgress(): UseProgressReturn {
         setError(null);
 
         try {
-            if (isConnected && context) {
-                // TODO: Chamar API real quando implementada
-                // const api = new AcademyAPI(context);
-                // const data = await api.getProgress();
-                // setProgress(data);
+            // Verificar se deve usar PostgreSQL
+            const useMockData = import.meta.env.VITE_USE_MOCK_DATA === 'true';
+            const hasSupabase = isSupabaseReady();
 
-                // Por enquanto, usar dados mockados
-                await new Promise(resolve => setTimeout(resolve, 500));
-                setProgress(MOCK_PROGRESS);
-                setStats(MOCK_STATS);
-                setStreak(MOCK_STREAK);
+            if (!useMockData && hasSupabase && isConnected && context) {
+                // Usar PostgreSQL
+                console.log('📊 [Academy] Carregando progresso do PostgreSQL...');
+
+                const progressData = await progressRepository.getProgress({
+                    tenantId: context.tenantId,
+                    userId: context.userId
+                });
+
+                if (progressData) {
+                    setProgress(progressData);
+
+                    // Calcular stats baseado no progresso
+                    const currentLvl = LEVELS.find(l => l.levelNumber === progressData.currentLevel) || LEVELS[0];
+                    const nextLvl = LEVELS.find(l => l.levelNumber === currentLvl.levelNumber + 1);
+
+                    setStats({
+                        xp: {
+                            current: progressData.totalXp,
+                            nextLevel: nextLvl?.xpRequired || 999999,
+                            percentage: nextLvl
+                                ? Math.round(((progressData.totalXp - currentLvl.xpRequired) / (nextLvl.xpRequired - currentLvl.xpRequired)) * 100)
+                                : 100
+                        },
+                        courses: {
+                            completed: progressData.coursesCompleted,
+                            inProgress: 0, // TODO: calcular
+                            total: 0 // TODO: buscar do banco
+                        },
+                        missions: {
+                            completed: progressData.missionsCompleted,
+                            available: 0 // TODO: buscar do banco
+                        },
+                        badges: {
+                            earned: 0, // TODO: buscar do banco
+                            total: 0 // TODO: buscar do banco
+                        }
+                    });
+
+                    setStreak({
+                        current: progressData.currentStreak,
+                        longest: progressData.longestStreak,
+                        lastActivityDate: progressData.lastActivityDate,
+                        weekHistory: [] // TODO: calcular dos últimos 7 dias
+                    });
+                } else {
+                    // Criar progresso inicial
+                    console.log('📊 [Academy] Criando progresso inicial...');
+                    const initialProgress = await progressRepository.upsertProgress(
+                        {
+                            tenantId: context.tenantId,
+                            userId: context.userId
+                        },
+                        {
+                            totalXp: 0,
+                            currentLevel: 1,
+                            coursesCompleted: 0,
+                            lessonsCompleted: 0,
+                            missionsCompleted: 0,
+                            currentStreak: 0,
+                            longestStreak: 0,
+                            lastActivityDate: new Date().toISOString().split('T')[0]
+                        }
+                    );
+                    setProgress(initialProgress);
+                }
             } else {
-                // Modo standalone (desenvolvimento)
+                // Usar dados mockados
+                console.log('📊 [Academy] Usando dados mockados...');
                 await new Promise(resolve => setTimeout(resolve, 300));
                 setProgress(MOCK_PROGRESS);
                 setStats(MOCK_STATS);
@@ -114,60 +176,113 @@ export function useProgress(): UseProgressReturn {
         } catch (err) {
             console.error('❌ [Academy] Erro ao carregar progresso:', err);
             setError(err instanceof Error ? err.message : 'Erro ao carregar progresso');
+
+            // Fallback para mocks em caso de erro
+            console.log('📊 [Academy] Fallback para dados mockados após erro');
+            setProgress(MOCK_PROGRESS);
+            setStats(MOCK_STATS);
+            setStreak(MOCK_STREAK);
         } finally {
             setIsLoading(false);
         }
     }, [isConnected, context]);
 
-    const addXp = useCallback(async (amount: number, _source: string) => {
+    const addXp = useCallback(async (amount: number, source: string) => {
         if (!progress) {
             return { leveledUp: false };
         }
 
         try {
-            const newTotalXp = progress.totalXp + amount;
+            const useMockData = import.meta.env.VITE_USE_MOCK_DATA === 'true';
+            const hasSupabase = isSupabaseReady();
 
-            // Verificar se subiu de level
-            const newLevel = levels.find(l => newTotalXp >= l.xpRange.min && newTotalXp <= l.xpRange.max);
-            const leveledUp = newLevel && newLevel.levelNumber > progress.currentLevel;
+            if (!useMockData && hasSupabase && isConnected && context) {
+                // Usar PostgreSQL
+                console.log(`💫 [Academy] Adicionando ${amount} XP via PostgreSQL...`);
 
-            // Atualizar estado local
-            setProgress(prev => prev ? {
-                ...prev,
-                totalXp: newTotalXp,
-                currentLevel: newLevel?.levelNumber || prev.currentLevel
-            } : null);
+                const result = await progressRepository.addXp(
+                    {
+                        tenantId: context.tenantId,
+                        userId: context.userId
+                    },
+                    amount,
+                    source,
+                    undefined,
+                    `Ganhou ${amount} XP de ${source}`
+                );
 
-            // Atualizar stats
-            if (stats && newLevel) {
-                const nextLvl = levels.find(l => l.levelNumber === newLevel.levelNumber + 1);
-                setStats(prev => prev ? {
+                // Atualizar estado local
+                setProgress(prev => prev ? {
                     ...prev,
-                    xp: {
-                        current: newTotalXp,
-                        nextLevel: nextLvl?.xpRequired || 999999,
-                        percentage: nextLvl
-                            ? Math.round(((newTotalXp - newLevel.xpRequired) / (nextLvl.xpRequired - newLevel.xpRequired)) * 100)
-                            : 100
-                    }
+                    totalXp: result.newTotalXp,
+                    currentLevel: result.newLevel || prev.currentLevel
                 } : null);
+
+                // Atualizar stats
+                if (result.newLevel && stats) {
+                    const newLevelData = LEVELS.find(l => l.levelNumber === result.newLevel);
+                    const nextLvl = LEVELS.find(l => l.levelNumber === (result.newLevel || 0) + 1);
+
+                    if (newLevelData) {
+                        setStats(prev => prev ? {
+                            ...prev,
+                            xp: {
+                                current: result.newTotalXp,
+                                nextLevel: nextLvl?.xpRequired || 999999,
+                                percentage: nextLvl
+                                    ? Math.round(((result.newTotalXp - newLevelData.xpRequired) / (nextLvl.xpRequired - newLevelData.xpRequired)) * 100)
+                                    : 100
+                            }
+                        } : null);
+                    }
+                }
+
+                return {
+                    leveledUp: result.leveledUp,
+                    newLevel: result.newLevel
+                };
+            } else {
+                // Usar mock (modo local)
+                console.log(`💫 [Academy] Adicionando ${amount} XP (mock)...`);
+
+                const newTotalXp = progress.totalXp + amount;
+
+                // Verificar se subiu de level
+                const newLevel = LEVELS.find(l => newTotalXp >= l.xpRange.min && newTotalXp <= l.xpRange.max);
+                const leveledUp = newLevel && newLevel.levelNumber > progress.currentLevel;
+
+                // Atualizar estado local
+                setProgress(prev => prev ? {
+                    ...prev,
+                    totalXp: newTotalXp,
+                    currentLevel: newLevel?.levelNumber || prev.currentLevel
+                } : null);
+
+                // Atualizar stats
+                if (stats && newLevel) {
+                    const nextLvl = LEVELS.find(l => l.levelNumber === newLevel.levelNumber + 1);
+                    setStats(prev => prev ? {
+                        ...prev,
+                        xp: {
+                            current: newTotalXp,
+                            nextLevel: nextLvl?.xpRequired || 999999,
+                            percentage: nextLvl
+                                ? Math.round(((newTotalXp - newLevel.xpRequired) / (nextLvl.xpRequired - newLevel.xpRequired)) * 100)
+                                : 100
+                        }
+                    } : null);
+                }
+
+                return {
+                    leveledUp: leveledUp || false,
+                    newLevel: leveledUp ? newLevel?.levelNumber : undefined
+                };
             }
-
-            // TODO: Chamar API real
-            // if (isConnected && context) {
-            //   const api = new AcademyAPI(context);
-            //   await api.addXp({ amount, sourceType: source });
-            // }
-
-            return {
-                leveledUp: leveledUp || false,
-                newLevel: leveledUp ? newLevel?.levelNumber : undefined
-            };
         } catch (err) {
             console.error('❌ [Academy] Erro ao adicionar XP:', err);
             throw err;
         }
-    }, [progress, stats, levels]);
+    }, [progress, stats, isConnected, context]);
 
     useEffect(() => {
         fetchProgress();
