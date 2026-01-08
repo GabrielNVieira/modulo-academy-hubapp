@@ -15,14 +15,17 @@ import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Separator } from '../ui/separator';
 import { GraduationCap } from 'lucide-react';
 
+import { UserProgress, UserStats, Streak, Level } from '../../types';
+
 interface ProgressTabProps {
-    progress: any;
-    stats: any;
-    streak?: any;
+    progress: UserProgress | null;
+    stats: UserStats | null;
+    streak: Streak | null;
+    currentLevel: Level | null;
     isLoading: boolean;
 }
 
-export function ProgressTab({ progress, stats, isLoading }: ProgressTabProps) {
+export function ProgressTab({ progress, stats, streak, currentLevel, isLoading }: ProgressTabProps) {
     if (isLoading) {
         return <ProgressTabSkeleton />;
     }
@@ -58,8 +61,8 @@ export function ProgressTab({ progress, stats, isLoading }: ProgressTabProps) {
                                     <AvatarFallback>UN</AvatarFallback>
                                 </Avatar>
                                 <div>
-                                    <Badge variant="outline" className="mb-1 border-primary/30 text-primary bg-primary/5">Nível {progress?.level || 1}</Badge>
-                                    <h2 className="text-xl font-bold text-foreground">Aventureiro</h2>
+                                    <Badge variant="outline" className="mb-1 border-primary/30 text-primary bg-primary/5">Nível {currentLevel?.levelNumber || 1}</Badge>
+                                    <h2 className="text-xl font-bold text-foreground">{currentLevel?.name || 'Explorador'}</h2>
                                 </div>
                             </div>
 
@@ -71,22 +74,28 @@ export function ProgressTab({ progress, stats, isLoading }: ProgressTabProps) {
                                     <div className="flex justify-between text-sm font-medium">
                                         <span className="text-primary flex items-center gap-1.5">
                                             <div className="w-2 h-2 rounded-full bg-primary" />
-                                            Progresso Nível
+                                            XP para próximo nível
                                         </span>
-                                        <span className="text-foreground">60%</span>
+                                        <span className="text-foreground">
+                                            {stats ? stats.xp.nextLevel - stats.xp.current : 0} XP
+                                        </span>
                                     </div>
-                                    <Progress value={60} className="h-2.5 bg-primary/10" />
+                                    <Progress value={stats?.xp.percentage || 0} className="h-2.5 bg-primary/10" />
                                 </div>
 
                                 <div className="space-y-2">
                                     <div className="flex justify-between text-sm font-medium">
                                         <span className="text-emerald-500 flex items-center gap-1.5">
                                             <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                                            Experiência (XP)
+                                            Experiência Total
                                         </span>
-                                        <span className="text-foreground">75%</span>
+                                        <span className="text-foreground">{stats?.xp.current || 0} XP</span>
                                     </div>
-                                    <Progress value={75} className="h-2.5 bg-emerald-500/10" indicatorClassName="bg-emerald-500" />
+                                    <Progress
+                                        value={stats?.xp.percentage || 0}
+                                        className="h-2.5 bg-emerald-500/10"
+                                        indicatorClassName="bg-emerald-500"
+                                    />
                                 </div>
                             </div>
                         </div>
@@ -95,15 +104,15 @@ export function ProgressTab({ progress, stats, isLoading }: ProgressTabProps) {
                     {/* Estatísticas Grid */}
                     <div className="grid grid-cols-3 gap-3">
                         <E4CEOCard size="small" className="flex flex-col items-center justify-center text-center p-3">
-                            <span className="text-lg font-bold text-foreground">4/8</span>
+                            <span className="text-lg font-bold text-foreground">{stats?.courses.completed}/{stats?.courses.total}</span>
                             <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Cursos</span>
                         </E4CEOCard>
                         <E4CEOCard size="small" className="flex flex-col items-center justify-center text-center p-3">
-                            <span className="text-lg font-bold text-foreground">12</span>
+                            <span className="text-lg font-bold text-foreground">{stats?.missions.completed}</span>
                             <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Missões</span>
                         </E4CEOCard>
                         <E4CEOCard size="small" className="flex flex-col items-center justify-center text-center p-3">
-                            <span className="text-lg font-bold text-foreground">5</span>
+                            <span className="text-lg font-bold text-foreground">{stats?.badges.earned}</span>
                             <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">Badges</span>
                         </E4CEOCard>
                     </div>
@@ -120,7 +129,7 @@ export function ProgressTab({ progress, stats, isLoading }: ProgressTabProps) {
 
                         <div className="flex flex-col items-center justify-center py-4 bg-background/40 backdrop-blur-sm rounded-2xl border border-white/20 shadow-inner">
                             <div className="text-5xl mb-1 animate-streak-fire">🔥</div>
-                            <div className="text-4xl font-black text-orange-500">7</div>
+                            <div className="text-4xl font-black text-orange-500">{streak?.current || 0}</div>
                             <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-1">Dias Consecutivos</div>
                         </div>
                     </E4CEOCard>

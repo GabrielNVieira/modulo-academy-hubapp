@@ -152,6 +152,7 @@ export interface LessonProgress {
     lessonId: string;
     status: LessonStatus;
     videoWatchedPercent: number;
+    videoCurrentTime?: number;
     quizScore?: number;
     completedAt?: string;
     xpEarned: number;

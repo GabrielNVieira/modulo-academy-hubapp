@@ -214,6 +214,7 @@ export class CourseRepository extends BaseRepository {
                         lesson_id: lessonId,
                         status: progress.status,
                         video_watched_percent: progress.videoWatchedPercent,
+                        video_current_time: progress.videoCurrentTime || 0,
                         quiz_score: progress.quizScore,
                         completed_at: progress.completedAt,
                         xp_earned: progress.xpEarned || 0,
@@ -356,6 +357,7 @@ export class CourseRepository extends BaseRepository {
             lessonId: data.lesson_id,
             status: data.status,
             videoWatchedPercent: data.video_watched_percent,
+            videoCurrentTime: data.video_current_time,
             quizScore: data.quiz_score,
             completedAt: data.completed_at,
             xpEarned: data.xp_earned

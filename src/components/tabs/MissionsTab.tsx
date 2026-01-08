@@ -25,6 +25,7 @@ export function MissionsTab() {
     const [showHelp, setShowHelp] = useState(false);
     const [showCompletionModal, setShowCompletionModal] = useState(false);
     const [completedMissionXp, setCompletedMissionXp] = useState(0);
+    const [isProcessing, setIsProcessing] = useState(false);
 
     // Selecionar primeira missão disponível ao carregar
     useEffect(() => {
@@ -42,33 +43,42 @@ export function MissionsTab() {
 
     // Handler para completar missão
     const handleCompleteMission = async () => {
-        if (!selectedMission) return;
+        if (!selectedMission || isProcessing) return;
+        setIsProcessing(true);
 
-        const result = await completeMission(selectedMission.id);
+        try {
+            const result = await completeMission(selectedMission.id);
 
-        if (result.success) {
-            // Adicionar XP ao progresso do usuário
-            await addXp(result.xpEarned, `Missão: ${selectedMission.title}`);
+            if (result.success) {
+                // Adicionar XP ao progresso do usuário
+                await addXp(result.xpEarned, `Missão: ${selectedMission.title}`);
 
-            // Mostrar modal de celebração
-            setCompletedMissionXp(result.xpEarned);
-            setShowCompletionModal(true);
+                // Mostrar modal de celebração
+                setShowCompletionModal(true);
+                setCompletedMissionXp(result.xpEarned);
 
-            // Confetti!
-            confetti({
-                particleCount: 100,
-                spread: 70,
-                origin: { y: 0.6 },
-            });
+                // Confetti!
+                confetti({
+                    particleCount: 100,
+                    spread: 70,
+                    origin: { y: 0.6 },
+                });
 
-            // Fechar modal após 3 segundos e selecionar próxima missão
-            setTimeout(() => {
-                setShowCompletionModal(false);
-                const nextMission = missions.find(m => m.status === 'available');
-                if (nextMission) {
-                    selectMission(nextMission.id);
-                }
-            }, 3000);
+                // Fechar modal após 3 segundos e selecionar próxima missão
+                setTimeout(() => {
+                    setShowCompletionModal(false);
+                    setIsProcessing(false);
+                    const nextMission = missions.find(m => m.status === 'available');
+                    if (nextMission) {
+                        selectMission(nextMission.id);
+                    }
+                }, 3000);
+            } else {
+                setIsProcessing(false);
+            }
+        } catch (error) {
+            console.error(error);
+            setIsProcessing(false);
         }
     };
 
@@ -82,7 +92,7 @@ export function MissionsTab() {
     return (
         <div className="h-[calc(100vh-8rem)] flex flex-col gap-6">
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-2">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-12 mt-4 pb-2">
                 <h1 className="text-3xl font-extrabold text-foreground tracking-tight">Missões Operacionais</h1>
                 <div className="flex items-center gap-4">
                     <Badge variant="outline" className="px-4 py-1.5 border-primary/20 bg-primary/5 text-primary font-bold">
@@ -102,11 +112,35 @@ export function MissionsTab() {
                 {/* Coluna Esquerda - Lista de Missões */}
                 <div className="lg:col-span-6 xl:col-span-5">
                     <E4CEOCard className="h-full flex flex-col p-0 overflow-hidden border-white/20 shadow-2xl">
-                        <div className="p-4 border-b border-gray-100 bg-white/50 backdrop-blur-md sticky top-0 z-10">
+                        <div className="p-4 border-b border-gray-100 bg-white/50 backdrop-blur-md sticky top-0 z-10 flex items-center justify-between">
                             <h3 className="text-sm font-bold flex items-center gap-2 text-gray-700 uppercase tracking-tight">
                                 <Target className="h-4 w-4 text-primary" />
                                 Lista de Missões
                             </h3>
+                            <button
+                                onClick={async () => {
+                                    const confirmAction = window.confirm('🛠️ DEBUG: Isso vai completar TODAS as missões desbloqueadas. Continuar?');
+                                    if (!confirmAction) return;
+
+                                    // Encontrar todas as missões não completadas
+                                    const missionsToComplete = missions.filter(m => m.status !== 'completed');
+
+                                    let totalXp = 0;
+                                    for (const m of missionsToComplete) {
+                                        if (m.status === 'locked') continue;
+                                        console.log(`🛠️ DEBUG: Completando ${m.title}...`);
+                                        const result = await completeMission(m.id);
+                                        if (result.success) totalXp += result.xpEarned;
+                                    }
+
+                                    if (totalXp > 0) {
+                                        await addXp(totalXp, 'Debug: Missões em Massa');
+                                    }
+                                }}
+                                className="text-[10px] font-mono bg-red-100 text-red-600 px-2 py-1 rounded hover:bg-red-200 transition-colors"
+                            >
+                                🛠️ DEBUG
+                            </button>
                         </div>
                         <div className="flex-1 min-h-0 relative">
                             <ScrollArea className="h-full w-full">
@@ -265,7 +299,7 @@ export function MissionsTab() {
                                 </Button>
                                 <Button
                                     onClick={handleCompleteMission}
-                                    disabled={!canComplete || selectedMission.status === 'completed' || isLoading}
+                                    disabled={!canComplete || selectedMission.status === 'completed' || isLoading || showCompletionModal || isProcessing}
                                     className="flex-1 h-12 bg-primary text-primary-foreground hover:bg-primary/90 shadow-xl shadow-primary/20 font-black uppercase tracking-[0.2em] text-xs rounded-xl"
                                 >
                                     {isLoading ? 'Sincronizando...' : selectedMission.status === 'completed' ? 'Missão Cumprida' : 'Extrair Recompensa'}
@@ -304,12 +338,12 @@ export function MissionsTab() {
             {/* Modal de Conclusão Glassmorphism */}
             {
                 showCompletionModal && (
-                    <div className="fixed inset-0 bg-background/80 backdrop-blur-md flex items-center justify-center z-50 animate-in fade-in">
-                        <E4CEOCard className="max-w-md w-full p-12 text-center border-primary/20 shadow-primary/10 animate-in zoom-in-95 duration-300">
-                            <div className="text-7xl mb-6">🏆</div>
+                    <div className="fixed inset-0 bg-background/80 backdrop-blur-md flex items-center justify-center z-[100] animate-in fade-in">
+                        <E4CEOCard className="max-w-md w-full p-12 text-center border-primary/20 shadow-primary/10 animate-in zoom-in-95 duration-300 flex flex-col items-center justify-center">
+                            <div className="text-7xl mb-6 animate-bounce">🏆</div>
                             <h2 className="text-3xl font-black text-foreground mb-4 uppercase italic tracking-tighter">Missão Cumprida!</h2>
                             <p className="text-muted-foreground font-medium mb-8">Excelente trabalho, operacional. Seus dados foram sincronizados com sucesso.</p>
-                            <div className="bg-primary text-white font-black text-2xl py-6 rounded-3xl shadow-2xl shadow-primary/30 tracking-[0.35em] inline-block px-12">
+                            <div className="bg-emerald-500 text-white font-black text-2xl py-4 px-10 rounded-2xl shadow-xl shadow-emerald-500/30 tracking-widest transform hover:scale-105 transition-transform cursor-default">
                                 +{completedMissionXp} XP
                             </div>
                         </E4CEOCard>

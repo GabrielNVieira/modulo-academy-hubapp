@@ -223,25 +223,75 @@ export function useMissions(): UseMissionsReturn {
                     });
 
                     if (missionsData.length > 0) {
-                        setMissions(missionsData);
-
-                        // Carregar progresso de cada missão
-                        const progressMap = new Map<string, MissionProgress>();
+                        // Carregar progresso de cada missão do DB
+                        const dbProgressMap = new Map<string, MissionProgress>();
                         for (const mission of missionsData) {
                             const missionProgress = await missionRepository.getMissionProgress(
-                                {
-                                    tenantId: context.tenantId,
-                                    userId: context.userId
-                                },
+                                { tenantId: context.tenantId, userId: context.userId },
                                 mission.id
                             );
-
                             if (missionProgress) {
-                                progressMap.set(mission.id, missionProgress);
+                                dbProgressMap.set(mission.id, missionProgress);
                             }
                         }
 
-                        setProgress(progressMap);
+                        // HYBRID SYNC: Recuperar localStorage para backup/merge
+                        let localProgressMap = new Map<string, MissionProgress>();
+                        try {
+                            const savedLocal = localStorage.getItem(STORAGE_KEY_PROGRESS);
+                            if (savedLocal) {
+                                const parsed = JSON.parse(savedLocal);
+                                localProgressMap = new Map(Object.entries(parsed));
+                            }
+                        } catch (e) { console.warn('Erro ao ler localStorage', e); }
+
+                        // Merge Final (Prioridade: DB > Local > Zero)
+                        const finalProgressMap = new Map<string, MissionProgress>();
+
+                        for (const mission of missionsData) {
+                            const dbP = dbProgressMap.get(mission.id);
+                            const localP = localProgressMap.get(mission.id);
+
+                            if (dbP) {
+                                finalProgressMap.set(mission.id, dbP);
+                            } else if (localP) {
+                                // Temos local mas não DB -> Usar local e Sync Upp
+                                finalProgressMap.set(mission.id, localP);
+                                // Fire-and-forget sync
+                                missionRepository.updateMissionProgress(
+                                    { tenantId: context.tenantId, userId: context.userId },
+                                    mission.id,
+                                    localP.checklistState || {}
+                                ).catch(err => console.error('Erro ao syncar local->db', err));
+
+                                if (localP.status === 'completed') {
+                                    missionRepository.completeMission(
+                                        { tenantId: context.tenantId, userId: context.userId },
+                                        mission.id
+                                    ).catch(e => console.error('Erro sync complete', e));
+                                }
+                            }
+                        }
+
+                        // Aplicar estatísticas nas missões
+                        const mergedMissions = missionsData.map(m => {
+                            const prog = finalProgressMap.get(m.id);
+                            if (!prog) return m;
+
+                            const updatedItems = m.requirements.items.map(item => {
+                                const isCompleted = prog.checklistState?.[item.id] ?? item.completed;
+                                return { ...item, completed: isCompleted };
+                            });
+
+                            return {
+                                ...m,
+                                status: (prog.status as any) || m.status,
+                                requirements: { ...m.requirements, items: updatedItems }
+                            };
+                        });
+
+                        setMissions(mergedMissions);
+                        setProgress(finalProgressMap);
                     }
                 } catch (error) {
                     console.error('❌ [Academy] Erro ao carregar missões do PostgreSQL:', error);
@@ -315,19 +365,25 @@ export function useMissions(): UseMissionsReturn {
     }, [missions, progress]);
 
     // Toggle item do checklist
-    const toggleChecklistItem = useCallback((missionId: string, itemId: string) => {
+    const toggleChecklistItem = useCallback(async (missionId: string, itemId: string) => {
         console.log('🔄 Toggle checklist item:', { missionId, itemId });
 
-        // Atualizar o checklist na missão
+        // 1. Calcular novo estado (Optimistic Update)
+        let newChecklistState: Record<string, boolean> = {};
+
+        // Atualizar o checklist na missão (Estado Local)
         setMissions(prev => {
             const updated = prev.map(mission => {
                 if (mission.id === missionId) {
                     const updatedItems = mission.requirements.items.map(item => {
                         if (item.id === itemId) {
                             const newCompleted = !item.completed;
-                            console.log('✅ Toggling item:', item.text, 'from', item.completed, 'to', newCompleted);
+                            // Guardar para o sync
+                            newChecklistState[item.id] = newCompleted;
                             return { ...item, completed: newCompleted };
                         }
+                        // Guardar outros itens também
+                        newChecklistState[item.id] = item.completed;
                         return item;
                     });
 
@@ -349,11 +405,10 @@ export function useMissions(): UseMissionsReturn {
                 return mission;
             });
 
-            console.log('📊 Updated missions:', updated);
             return updated;
         });
 
-        // Atualizar progresso
+        // Atualizar progresso (Estado Local)
         setProgress(prev => {
             const newProgress = new Map(prev);
             const missionProgress = newProgress.get(missionId);
@@ -364,14 +419,42 @@ export function useMissions(): UseMissionsReturn {
                 item.id === itemId ? { ...item, completed: !item.completed } : item
             );
 
+            // Reconstruir o state record completo para garantia
+            const fullChecklistState: Record<string, boolean> = {};
+            updatedItems.forEach(item => {
+                fullChecklistState[item.id] = item.completed;
+            });
+            newChecklistState = fullChecklistState; // Atualizar referência para usar no sync
+
             newProgress.set(missionId, {
                 ...missionProgress,
                 checklistItems: updatedItems,
+                checklistState: fullChecklistState
             });
 
             return newProgress;
         });
-    }, []);
+
+        // 2. Sincronizar com Backend (PostgreSQL)
+        const useMockData = import.meta.env.VITE_USE_MOCK_DATA === 'true';
+        const hasSupabase = isSupabaseReady();
+
+        if (!useMockData && hasSupabase && isConnected && context) {
+            try {
+                // Debounce ou fire-and-forget
+                // Aqui fazemos fire-and-forget mas idealmente seria nice ter um feedback visual de "salvando"
+                await missionRepository.updateMissionProgress(
+                    { tenantId: context.tenantId, userId: context.userId },
+                    missionId,
+                    newChecklistState
+                );
+                console.log('✅ [Academy] Checklist sincronizado com sucesso!');
+            } catch (error) {
+                console.error('❌ [Academy] Falha ao sincronizar checklist:', error);
+                // TODO: Reverter optimistic update ou mostrar erro
+            }
+        }
+    }, [isConnected, context]);
 
     // Solicitar ajuda
     const requestHelp = useCallback((missionId: string) => {
@@ -442,9 +525,30 @@ export function useMissions(): UseMissionsReturn {
                     return newProgress;
                 });
 
-                setMissions(prev => prev.map(m =>
-                    m.id === missionId ? { ...m, status: 'completed' as const } : m
-                ));
+                setMissions(prev => {
+                    // 1. Mark current as completed
+                    const withCompleted = prev.map(m =>
+                        m.id === missionId ? { ...m, status: 'completed' as const } : m
+                    );
+
+                    // 2. Unlock others
+                    return withCompleted.map(mission => {
+                        if (mission.status === 'locked' && mission.prerequisites?.includes(missionId)) {
+                            // Check if ALL prereqs are now completed
+                            const allPrereqsMet = mission.prerequisites.every(prereqId => {
+                                const p = withCompleted.find(wm => wm.id === prereqId);
+                                return p?.status === 'completed';
+                            });
+                            if (allPrereqsMet) return { ...mission, status: 'available' as const };
+                        }
+                        return mission;
+                    });
+                });
+
+                // Atualizar também selectedMission se for a missão atual
+                setSelectedMission(current =>
+                    current?.id === missionId ? { ...current, status: 'completed' as const } : current
+                );
 
                 setIsLoading(false);
                 return { success: true, xpEarned: result.xpEarned };
@@ -468,10 +572,34 @@ export function useMissions(): UseMissionsReturn {
                     return newProgress;
                 });
 
-                // Atualizar status da missão
-                setMissions(prev => prev.map(m =>
-                    m.id === missionId ? { ...m, status: 'completed' as const } : m
-                ));
+                // Atualizar status da missão e desbloquear próximas
+                setMissions(prev => {
+                    // 1. Mark current as completed
+                    const withCompleted = prev.map(m =>
+                        m.id === missionId ? { ...m, status: 'completed' as const } : m
+                    );
+
+                    // 2. Unlock others
+                    return withCompleted.map(mission => {
+                        if (mission.status === 'locked' && mission.prerequisites?.includes(missionId)) {
+                            // Check if ALL prereqs are now completed
+                            const allPrereqsMet = mission.prerequisites.every(prereqId => {
+                                const p = withCompleted.find(wm => wm.id === prereqId);
+                                return p?.status === 'completed';
+                            });
+                            if (allPrereqsMet) {
+                                console.log(`🔓 Desbloqueando missão: ${mission.title}`);
+                                return { ...mission, status: 'available' as const };
+                            }
+                        }
+                        return mission;
+                    });
+                });
+
+                // Atualizar também selectedMission se for a missão atual
+                setSelectedMission(current =>
+                    current?.id === missionId ? { ...current, status: 'completed' as const } : current
+                );
 
                 // Simular delay de API
                 await new Promise(resolve => setTimeout(resolve, 500));

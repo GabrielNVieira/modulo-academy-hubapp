@@ -74,45 +74,24 @@ const academyConfig: AcademyModuleConfig = {
 export default function App() {
     const [activeTab, setActiveTab] = useState('progresso');
     const { isLoading: hubLoading, isConnected, error: hubError } = useHubContext();
-    const { progress, stats, streak, isLoading: progressLoading } = useProgress();
+    const { progress, stats, streak, currentLevel, isLoading: progressLoading } = useProgress();
 
-    // Loading inicial - com fundo visível
-    if (hubLoading && !window.hubContext) {
-        return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
-                <div className="text-center space-y-4">
-                    <div className="w-16 h-16 mx-auto bg-gradient-to-br from-cyan-500 to-cyan-600 rounded-2xl flex items-center justify-center animate-pulse">
-                        <GraduationCap className="h-8 w-8 text-white" />
-                    </div>
-                    <div className="flex items-center justify-center gap-2 text-gray-600">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        <span>Conectando ao Hub.App...</span>
-                    </div>
-                </div>
-            </div>
-        );
-    }
+    // EFEITO DE RESET (RE-ATIVADO A PEDIDO DO USUÁRIO)
+    // Limpa novamente para garantir estado zerado
+    useState(() => {
+        console.log('🧹 [App] Executando RESET TOTAL de dados (WILDCARD)...');
+        // Iterar sobre todas as chaves para garantir que quiz e notas também sejam apagados
+        Object.keys(localStorage).forEach(key => {
+            if (key.startsWith('academy_')) {
+                console.log(`🗑️ Removendo: ${key}`);
+                localStorage.removeItem(key);
+            }
+        });
+    });
 
-    // Erro de conexão (em produção)
-    if (hubError && import.meta.env.PROD) {
-        return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
-                <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md text-center space-y-4">
-                    <div className="w-16 h-16 mx-auto bg-red-100 rounded-full flex items-center justify-center">
-                        <span className="text-3xl">⚠️</span>
-                    </div>
-                    <h2 className="text-xl font-bold text-gray-900">Erro de Conexão</h2>
-                    <p className="text-gray-600">{hubError}</p>
-                    <button
-                        onClick={() => window.location.reload()}
-                        className="px-6 py-2 bg-cyan-500 text-white rounded-xl hover:bg-cyan-600 transition-colors"
-                    >
-                        Tentar Novamente
-                    </button>
-                </div>
-            </div>
-        );
-    }
+
+
+    // ... (rest of the code)
 
     // Renderizar conteúdo baseado na aba ativa
     const renderTabContent = () => {
@@ -123,6 +102,7 @@ export default function App() {
                         progress={progress}
                         stats={stats}
                         streak={streak}
+                        currentLevel={currentLevel}
                         isLoading={progressLoading}
                     />
                 );
@@ -134,7 +114,15 @@ export default function App() {
                 return <MissionsTab />;
 
             default:
-                return <ProgressTab progress={progress} stats={stats} streak={streak} isLoading={progressLoading} />;
+                return (
+                    <ProgressTab
+                        progress={progress}
+                        stats={stats}
+                        streak={streak}
+                        currentLevel={currentLevel}
+                        isLoading={progressLoading}
+                    />
+                );
         }
     };
 

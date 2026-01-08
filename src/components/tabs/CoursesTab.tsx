@@ -8,6 +8,14 @@ import { Input } from '../ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { ScrollArea } from '../ui/scroll-area';
 import { cn } from '../../lib/utils';
+import { useProgress } from '../../hooks/useProgress';
+import { useHubContext } from '../../hooks/useHubContext';
+import { isSupabaseReady } from '../../lib/supabase';
+import { courseRepository } from '../../services';
+
+function isUUID(uuid: string) {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(uuid);
+}
 
 interface Lesson {
     id: string;
@@ -36,11 +44,19 @@ export function CoursesTab() {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
     const [showPlayer, setShowPlayer] = useState(false);
+    const [initialTime, setInitialTime] = useState(0);
+    const { addXp, currentLevel } = useProgress();
+    const { context, isConnected } = useHubContext();
 
     // Estado das aulas com persistência
     const [lessons, setLessons] = useState<Lesson[]>(() => {
-        const saved = localStorage.getItem('academy_lessons');
-        return saved ? JSON.parse(saved) : INITIAL_LESSONS;
+        try {
+            const saved = localStorage.getItem('academy_lessons');
+            return saved ? JSON.parse(saved) : INITIAL_LESSONS;
+        } catch (error) {
+            console.error('Erro ao ler aulas do localStorage:', error);
+            return INITIAL_LESSONS;
+        }
     });
 
     // Salvar aulas sempre que mudar
@@ -67,10 +83,62 @@ export function CoursesTab() {
     );
 
     // Função para abrir o player de vídeo
-    const handleLessonClick = (lesson: Lesson) => {
+    const handleLessonClick = async (lesson: Lesson) => {
+        let startTime = 0;
+
+        // Tentar buscar progresso salvo
+        const useMockData = import.meta.env.VITE_USE_MOCK_DATA === 'true';
+        const hasSupabase = isSupabaseReady();
+
+        if (!useMockData && hasSupabase && isConnected && context && isUUID(lesson.id)) {
+            try {
+                const progress = await courseRepository.getLessonProgress(
+                    { tenantId: context.tenantId, userId: context.userId },
+                    lesson.id
+                );
+                if (progress?.videoCurrentTime) {
+                    startTime = progress.videoCurrentTime;
+                }
+            } catch (error) {
+                console.error('Erro ao buscar progresso da aula:', error);
+            }
+        } else {
+            // Fallback: localStorage para aulas mock (IDs "1", "2", etc e ambiente dev)
+            const savedTime = localStorage.getItem(`academy_video_time_${lesson.id}`);
+            if (savedTime) startTime = parseFloat(savedTime);
+        }
+
+        setInitialTime(startTime);
         setSelectedLesson(lesson);
         setLastLessonId(lesson.id);
         setShowPlayer(true);
+    };
+
+    const handleProgressUpdate = async (time: number, percentage: number) => {
+        if (!selectedLesson) return;
+
+        // Salvar localmente sempre (backup e suporte a mocks)
+        localStorage.setItem(`academy_video_time_${selectedLesson.id}`, time.toString());
+
+        const useMockData = import.meta.env.VITE_USE_MOCK_DATA === 'true';
+        const hasSupabase = isSupabaseReady();
+
+        if (!useMockData && hasSupabase && isConnected && context && isUUID(selectedLesson.id)) {
+            try {
+                // Salvar no backend
+                await courseRepository.updateLessonProgress(
+                    { tenantId: context.tenantId, userId: context.userId },
+                    selectedLesson.id,
+                    {
+                        status: 'in_progress',
+                        videoWatchedPercent: Math.round(percentage),
+                        videoCurrentTime: Math.round(time)
+                    }
+                );
+            } catch (error) {
+                console.error('Erro ao salvar progresso:', error);
+            }
+        }
     };
 
     // Função para fechar o player
@@ -80,8 +148,25 @@ export function CoursesTab() {
     };
 
     // Callback de atualização de status vindo do VideoPlayer
-    const handleStatusChange = (newStatus: LessonStatus) => {
+    const handleStatusChange = async (newStatus: LessonStatus) => {
         if (!selectedLesson) return;
+
+        // Verificar se completou agora
+        if (newStatus === 'completed' && selectedLesson.status !== 'completed') {
+            // Adicionar XP
+            await addXp(selectedLesson.xp, `Aula: ${selectedLesson.title}`);
+        }
+
+        // Verificar se TODAS as aulas foram completadas
+        const allCompleted = lessons.every(l =>
+            l.id === selectedLesson.id ? newStatus === 'completed' : l.status === 'completed'
+        );
+
+        if (allCompleted && newStatus === 'completed' && selectedLesson.status !== 'completed') {
+            console.log('🎓 Curso completo! Adicionando contador...');
+            // Disparar evento de curso completo (simulado via XP source por enquanto ou nova prop)
+            await addXp(0, 'Curso: Introdução ao Webhook');
+        }
 
         setLessons(prev => prev.map(lesson => {
             if (lesson.id === selectedLesson.id) {
@@ -109,6 +194,8 @@ export function CoursesTab() {
                 videoUrl="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
                 onBack={handleClosePlayer}
                 onStatusChange={handleStatusChange}
+                initialTime={initialTime}
+                onProgressUpdate={handleProgressUpdate}
             />
         );
     }
@@ -126,10 +213,40 @@ export function CoursesTab() {
                             <AvatarFallback>JO</AvatarFallback>
                         </Avatar>
                         <div className="leading-tight">
-                            <h2 className="text-sm font-bold text-foreground">JOAO</h2>
-                            <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Explorador Academy</p>
+                            <h2 className="text-sm font-bold text-foreground">Usuário</h2>
+                            <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                                Nível {currentLevel?.levelNumber || 1} • {currentLevel?.name || 'Explorador'}
+                            </p>
                         </div>
                     </E4CEOCard>
+
+                    {/* DEBUG TOOLS */}
+                    <div className="flex justify-end -mt-2 mb-2">
+                        <button
+                            onClick={async () => {
+                                const confirmAction = window.confirm('🛠️ DEBUG: Isso vai completar TODAS as aulas e dar o XP. Continuar?');
+                                if (!confirmAction) return;
+
+                                console.log('🛠️ DEBUG: Completando curso...');
+
+                                // 1. Atualizar todas as aulas para completed
+                                setLessons(prev => prev.map(l => ({ ...l, status: 'completed' })));
+
+                                // 2. Dar XP das aulas que faltavam (simplificado: dá um xpsão)
+                                // Calcular XP faltante
+                                const xpMissing = lessons.reduce((acc, l) => l.status !== 'completed' ? acc + l.xp : acc, 0);
+                                if (xpMissing > 0) await addXp(xpMissing, 'Debug: Aulas em Massa');
+
+                                // 3. Disparar conclusão do curso
+                                await addXp(0, 'Curso: Introdução ao Webhook');
+                                console.log('🛠️ DEBUG: Curso completado!');
+                                alert('Curso completado com sucesso! Verifique o contador.');
+                            }}
+                            className="text-[10px] font-mono bg-red-100 text-red-600 px-2 py-1 rounded hover:bg-red-200 transition-colors"
+                        >
+                            🛠️ DEBUG: COMPLETAR CURSO
+                        </button>
+                    </div>
 
                     <Card className="border-border/50 shadow-xl overflow-hidden">
                         <CardHeader className="bg-muted/30 pb-4 border-b">

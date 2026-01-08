@@ -41,6 +41,8 @@ interface VideoPlayerProps {
   onBack?: () => void;
   onComplete?: () => void; // Mantido para compatibilidade, mas idealmente usaria onStatusChange
   onStatusChange?: (status: LessonStatus) => void;
+  initialTime?: number; // Tempo inicial em segundos
+  onProgressUpdate?: (currentTime: number, percentage: number) => void;
 }
 
 // Interface para notas do vídeo
@@ -76,7 +78,9 @@ export function VideoPlayer({
   lessonId = "lesson-default",
   onBack,
   onComplete,
-  onStatusChange
+  onStatusChange,
+  initialTime = 0,
+  onProgressUpdate
 }: VideoPlayerProps) {
   // Estados do player
   const [isPlaying, setIsPlaying] = useState(false);
@@ -109,6 +113,18 @@ export function VideoPlayer({
   const videoRef = useRef<HTMLVideoElement>(null);
   const progressBarRef = useRef<HTMLDivElement>(null);
   const noteInputRef = useRef<HTMLTextAreaElement>(null);
+  const lastProgressUpdateRef = useRef<number>(0);
+  const hasSeekedRef = useRef(false);
+
+  // Seek inicial quando o vídeo estiver pronto
+  useEffect(() => {
+    if (initialTime > 0 && videoRef.current && !hasSeekedRef.current) {
+      // Tentar settar imediatamente se ref estiver disponível
+      videoRef.current.currentTime = initialTime;
+      setCurrentTime(initialTime);
+      hasSeekedRef.current = true;
+    }
+  }, [initialTime]);
 
   // Chave do localStorage para esta lição
   const storageKey = `academy_notes_${lessonId}`;
@@ -372,7 +388,15 @@ export function VideoPlayer({
   // Atualizar progresso
   const handleTimeUpdate = () => {
     if (videoRef.current) {
-      setCurrentTime(videoRef.current.currentTime);
+      const time = videoRef.current.currentTime;
+      setCurrentTime(time);
+
+      // Notificar parente a cada 5 segundos
+      if (onProgressUpdate && Math.abs(time - lastProgressUpdateRef.current) > 5) {
+        const percent = (time / duration) * 100;
+        onProgressUpdate(time, percent);
+        lastProgressUpdateRef.current = time;
+      }
     }
   };
 
@@ -380,6 +404,11 @@ export function VideoPlayer({
   const handleLoadedMetadata = () => {
     if (videoRef.current) {
       setDuration(videoRef.current.duration);
+      if (initialTime > 0 && !hasSeekedRef.current) {
+        videoRef.current.currentTime = initialTime;
+        setCurrentTime(initialTime);
+        hasSeekedRef.current = true;
+      }
     }
   };
 

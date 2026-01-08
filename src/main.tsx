@@ -137,8 +137,14 @@ console.log('🎓 [Academy] Módulo carregado, aguardando contexto do Hub...');
 
 // ==================== RENDER APP ====================
 
+import { ProgressProvider } from './contexts/ProgressContext';
+
+// ==================== RENDER APP ====================
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
     <React.StrictMode>
-        <App />
+        <ProgressProvider>
+            <App />
+        </ProgressProvider>
     </React.StrictMode>
 );
