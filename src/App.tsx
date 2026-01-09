@@ -76,22 +76,8 @@ export default function App() {
     const { isConnected } = useHubContext();
     const { progress, stats, streak, currentLevel, isLoading: progressLoading } = useProgress();
 
-    // EFEITO DE RESET (RE-ATIVADO A PEDIDO DO USUÁRIO)
-    // Limpa novamente para garantir estado zerado
-    useState(() => {
-        console.log('🧹 [App] Executando RESET TOTAL de dados (WILDCARD)...');
-        // Iterar sobre todas as chaves para garantir que quiz e notas também sejam apagados
-        Object.keys(localStorage).forEach(key => {
-            if (key.startsWith('academy_')) {
-                console.log(`🗑️ Removendo: ${key}`);
-                localStorage.removeItem(key);
-            }
-        });
-    });
 
 
-
-    // ... (rest of the code)
 
     // Renderizar conteúdo baseado na aba ativa
     const renderTabContent = () => {

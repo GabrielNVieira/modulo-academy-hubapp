@@ -55,8 +55,8 @@ export function useHubContext(): UseHubContextReturn {
                     apiUrl: 'https://api.mock',
                     apiToken: 'mock-token',
                     env: {
-                        SUPABASE_URL: '',
-                        SUPABASE_ANON_KEY: ''
+                        SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL || '',
+                        SUPABASE_ANON_KEY: import.meta.env.VITE_SUPABASE_ANON_KEY || ''
                     },
                     session: null
                 };

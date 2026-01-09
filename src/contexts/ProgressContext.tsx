@@ -4,6 +4,8 @@ import { UserProgress, UserStats, Streak, Level } from '../types';
 
 import { useHubContext } from '../hooks/useHubContext';
 import { isSupabaseReady } from '../lib/supabase';
+import { progressRepository } from '../services/progress.repository';
+
 
 // Níveis default para fallback/mock
 const DEFAULT_LEVELS: Level[] = [
@@ -85,15 +87,86 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
         setError(null);
 
         try {
-            // FORÇANDO MOCK PARA TESTES
-            const useMockData = true; // import.meta.env.VITE_USE_MOCK_DATA === 'true';
+            const useMockData = import.meta.env.VITE_USE_MOCK_DATA === 'true';
             const hasSupabase = isSupabaseReady();
 
             if (!useMockData && hasSupabase && isConnected && context) {
-                // ... (Lógica PostgreSQL existente - simplificada aqui para focar no mock)
-                // Se não for mock, carrega do DB...
-                // (Mantendo lógica original se necessário, mas focando no problema do usuário agora)
-                // ...
+                console.log('🔄 [ProgressProvider] Buscando dados do Backend (PostgreSQL)...');
+
+                // 1. Carregar Níveis
+                try {
+                    const dbLevels = await progressRepository.getLevels(context);
+                    if (dbLevels && dbLevels.length > 0) {
+                        const formattedLevels: Level[] = dbLevels.map(l => ({
+                            id: l.id || `level-${l.level_number}`,
+                            levelNumber: l.level_number,
+                            name: l.name,
+                            color: l.color,
+                            icon: l.icon,
+                            xpRequired: l.xp_required,
+                            xpRange: { min: l.xp_required, max: 999999 } // Aproximado, ideal seria calcular
+                        }));
+                        // Ajustar max ranges
+                        for (let i = 0; i < formattedLevels.length - 1; i++) {
+                            formattedLevels[i].xpRange.max = formattedLevels[i + 1].xpRange.min - 1;
+                        }
+                        setLevels(formattedLevels);
+                    } else {
+                        setLevels(DEFAULT_LEVELS);
+                    }
+                } catch (e) {
+                    console.warn('Erro ao carregar níveis, usando default', e);
+                    setLevels(DEFAULT_LEVELS);
+                }
+
+                // 2. Carregar Progresso
+                let dbProgress = await progressRepository.getProgress(context);
+
+                if (!dbProgress) {
+                    console.log('🆕 [ProgressProvider] Usuário novo, criando progresso inicial...');
+                    // Criar perfil inicial
+                    dbProgress = await progressRepository.upsertProgress(context, {
+                        ...INITIAL_MOCK_PROGRESS,
+                        userId: context.userId,
+                        tenantId: context.tenantId,
+                        lastActivityDate: new Date().toISOString()
+                    });
+                }
+
+                if (dbProgress) {
+                    setProgress(dbProgress);
+
+                    // TODO: Carregar stats reais do servidor (atualmente calculado no front em parte)
+                    // Por enquanto, geramos stats basico do progresso
+                    const nextLvl = levels.find(l => l.levelNumber === (dbProgress?.currentLevel || 1) + 1);
+                    const currLvl = levels.find(l => l.levelNumber === (dbProgress?.currentLevel || 1));
+
+                    setStats({
+                        xp: {
+                            current: dbProgress.totalXp,
+                            nextLevel: nextLvl?.xpRequired || 999999,
+                            percentage: nextLvl && currLvl ? Math.round(((dbProgress.totalXp - currLvl.xpRequired) / (nextLvl.xpRequired - currLvl.xpRequired)) * 100) : 0
+                        },
+                        courses: {
+                            completed: dbProgress.coursesCompleted,
+                            inProgress: 0, // Precisaria buscar do courseRepository
+                            total: 12
+                        },
+                        missions: {
+                            completed: dbProgress.missionsCompleted,
+                            available: 0 // Precisaria buscar do missionRepository
+                        },
+                        badges: { earned: 0, total: 20 }
+                    });
+
+                    setStreak({
+                        current: dbProgress.currentStreak,
+                        longest: dbProgress.longestStreak,
+                        lastActivityDate: dbProgress.lastActivityDate || '',
+                        weekHistory: await progressRepository.getStreakHistory(context)
+                    });
+                }
+
             } else {
                 // MOCK LOGIC SIMPLIFICADA E UNIFICADA
                 console.log('📊 [ProgressProvider] Usando dados mockados (Contexto Global)...');
@@ -137,6 +210,33 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     const addXp = useCallback(async (amount: number, source: string) => {
         console.log(`💫 [ProgressProvider] Adicionando ${amount} XP de ${source}`);
 
+        const useMockData = import.meta.env.VITE_USE_MOCK_DATA === 'true';
+        const hasSupabase = isSupabaseReady();
+
+        if (!useMockData && hasSupabase && isConnected && context) {
+            // BACKEND LOGIC
+            try {
+                const result = await progressRepository.addXp(context, amount, 'action', undefined, source);
+
+                // Refresh local state with result
+                if (result) {
+                    setProgress(prev => prev ? ({
+                        ...prev,
+                        totalXp: result.newTotalXp,
+                        currentLevel: result.newLevel || prev.currentLevel
+                    }) : null);
+
+                    // Trigger refresh to get full updated state including streaks updated by DB trigger/logic
+                    fetchProgress();
+
+                    return { leveledUp: result.leveledUp, newLevel: result.newLevel };
+                }
+            } catch (e) {
+                console.error('Failed to add XP remotely', e);
+            }
+        }
+
+        // FALLBACK / MOCK LOGIC
         let leveledUp = false;
         let newLevelNum: number | undefined;
 
@@ -222,7 +322,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
 
         return { leveledUp, newLevel: newLevelNum };
 
-    }, [levels]);
+    }, [levels, isConnected, context, fetchProgress]);
 
     // Initial fetch
     useEffect(() => {

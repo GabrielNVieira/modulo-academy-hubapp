@@ -59,6 +59,46 @@ export function CoursesTab() {
         }
     });
 
+    // Carregar aulas do Backend
+    useEffect(() => {
+        const loadLessons = async () => {
+            const useMockData = import.meta.env.VITE_USE_MOCK_DATA === 'true';
+            const hasSupabase = isSupabaseReady();
+
+            if (!useMockData && hasSupabase && isConnected && context) {
+                try {
+                    console.log('📚 [CoursesTab] Buscando cursos do PostgreSQL...');
+                    const courses = await courseRepository.getCourses(context);
+
+                    if (courses && courses.length > 0) {
+                        const mainCourse = courses[0]; // Pega o primeiro curso por enquanto
+                        const dbLessons = await courseRepository.getCourseLessons(context, mainCourse.id);
+
+                        if (dbLessons.length > 0) {
+                            // Carregar progresso de cada lição
+                            const mergedLessons = await Promise.all(dbLessons.map(async (l) => {
+                                const prog = await courseRepository.getLessonProgress(context, l.id);
+                                return {
+                                    ...l,
+                                    status: prog?.status || 'not_started',
+                                    // Mapear outros campos se necessário (videoUrl já vem do DB)
+                                };
+                            }));
+
+                            setLessons(mergedLessons);
+                            return;
+                        }
+                    }
+                } catch (err) {
+                    console.error('❌ [CoursesTab] Erro ao carregar cursos:', err);
+                }
+            }
+            // Se falhar ou não tiver backend, mantemos o local state (INITIAL_LESSONS ou localStorage)
+        };
+
+        loadLessons();
+    }, [isConnected, context]);
+
     // Salvar aulas sempre que mudar
     useEffect(() => {
         localStorage.setItem('academy_lessons', JSON.stringify(lessons));
@@ -168,6 +208,26 @@ export function CoursesTab() {
             await addXp(0, 'Curso: Introdução ao Webhook');
         }
 
+        // SYNC BACKEND
+        const useMockData = import.meta.env.VITE_USE_MOCK_DATA === 'true';
+        const hasSupabase = isSupabaseReady();
+        if (!useMockData && hasSupabase && isConnected && context && isUUID(selectedLesson.id)) {
+            if (newStatus === 'completed') {
+                try {
+                    await courseRepository.completeLesson(context, selectedLesson.id);
+                } catch (e) {
+                    console.error('Falha ao completar lição no backend', e);
+                }
+            } else {
+                // Para outros status, update normal
+                try {
+                    await courseRepository.updateLessonProgress(context, selectedLesson.id, {
+                        status: newStatus
+                    });
+                } catch (e) { console.error('Falha ao atualizar status', e); }
+            }
+        }
+
         setLessons(prev => prev.map(lesson => {
             if (lesson.id === selectedLesson.id) {
                 // Só atualiza se o status for "maior" ou diferente
@@ -191,7 +251,7 @@ export function CoursesTab() {
                 totalLessons={lessons.length}
                 courseTitle="Curso: Introdução ao Webhook"
                 xpReward={selectedLesson.xp}
-                videoUrl="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+                videoUrl={selectedLesson.videoUrl || "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"}
                 onBack={handleClosePlayer}
                 onStatusChange={handleStatusChange}
                 initialTime={initialTime}
