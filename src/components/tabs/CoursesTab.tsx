@@ -22,6 +22,7 @@ interface Lesson {
     title: string;
     xp: number;
     status: LessonStatus;
+    videoUrl?: string;
 }
 
 type FilterType = 'not_started' | 'in_progress' | 'completed';
@@ -79,9 +80,11 @@ export function CoursesTab() {
                             const mergedLessons = await Promise.all(dbLessons.map(async (l) => {
                                 const prog = await courseRepository.getLessonProgress(context, l.id);
                                 return {
-                                    ...l,
-                                    status: prog?.status || 'not_started',
-                                    // Mapear outros campos se necessário (videoUrl já vem do DB)
+                                    id: l.id,
+                                    title: l.title,
+                                    xp: l.xpReward,
+                                    status: (prog?.status as LessonStatus) || 'not_started',
+                                    videoUrl: l.videoUrl
                                 };
                             }));
 
