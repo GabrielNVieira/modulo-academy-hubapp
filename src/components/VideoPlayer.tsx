@@ -89,7 +89,7 @@ export function VideoPlayer({
   const [hasStarted, setHasStarted] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [maxWatchedTime, setMaxWatchedTime] = useState(initialTime);
-  const [duration, setDuration] = useState(300); // 5 minutos default
+  const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
   const [showControls, setShowControls] = useState(true);
@@ -118,6 +118,16 @@ export function VideoPlayer({
   const noteInputRef = useRef<HTMLTextAreaElement>(null);
   const lastProgressUpdateRef = useRef<number>(0);
   const hasSeekedRef = useRef(false);
+
+  // Forçar recarga do vídeo quando a URL mudar
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.load();
+      setHasStarted(false);
+      setIsPlaying(false);
+      hasSeekedRef.current = false;
+    }
+  }, [videoUrl]);
 
   // Seek inicial quando o vídeo estiver pronto
   useEffect(() => {
@@ -522,12 +532,12 @@ export function VideoPlayer({
             <video
               ref={videoRef}
               className="w-full h-full"
+              src={videoUrl}
               onTimeUpdate={handleTimeUpdate}
               onLoadedMetadata={handleLoadedMetadata}
               onClick={togglePlay}
-            >
-              {videoUrl && <source src={videoUrl} type="video/mp4" />}
-            </video>
+              playsInline
+            />
 
             {/* Play Button Overlay (when paused) */}
             {!isPlaying && (

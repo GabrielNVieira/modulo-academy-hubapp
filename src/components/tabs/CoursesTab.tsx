@@ -28,16 +28,18 @@ interface Lesson {
 type FilterType = 'not_started' | 'in_progress' | 'completed';
 
 // Dados iniciais (default)
+const SAMPLE_VIDEO = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
+
 const INITIAL_LESSONS: Lesson[] = [
-    { id: '1', title: 'AULA 1 - Introdução ao Sistema', xp: 10, status: 'not_started' },
-    { id: '2', title: 'AULA 2 - Configuração Inicial', xp: 15, status: 'not_started' },
-    { id: '3', title: 'AULA 3 - Primeiros Passos', xp: 20, status: 'not_started' },
-    { id: '4', title: 'AULA 4 - Funcionalidades Básicas', xp: 25, status: 'not_started' },
-    { id: '5', title: 'AULA 5 - Recursos Avançados', xp: 30, status: 'not_started' },
-    { id: '6', title: 'AULA 6 - Integrações', xp: 35, status: 'not_started' },
-    { id: '7', title: 'AULA 7 - Boas Práticas', xp: 40, status: 'not_started' },
-    { id: '8', title: 'AULA 8 - Projeto Final', xp: 50, status: 'not_started' },
-    { id: '9', title: 'AULA 9 - Certificação', xp: 100, status: 'not_started' },
+    { id: '1', title: 'AULA 1 - Introdução ao Sistema', xp: 10, status: 'not_started', videoUrl: SAMPLE_VIDEO },
+    { id: '2', title: 'AULA 2 - Configuração Inicial', xp: 15, status: 'not_started', videoUrl: SAMPLE_VIDEO },
+    { id: '3', title: 'AULA 3 - Primeiros Passos', xp: 20, status: 'not_started', videoUrl: SAMPLE_VIDEO },
+    { id: '4', title: 'AULA 4 - Funcionalidades Básicas', xp: 25, status: 'not_started', videoUrl: SAMPLE_VIDEO },
+    { id: '5', title: 'AULA 5 - Recursos Avançados', xp: 30, status: 'not_started', videoUrl: SAMPLE_VIDEO },
+    { id: '6', title: 'AULA 6 - Integrações', xp: 35, status: 'not_started', videoUrl: SAMPLE_VIDEO },
+    { id: '7', title: 'AULA 7 - Boas Práticas', xp: 40, status: 'not_started', videoUrl: SAMPLE_VIDEO },
+    { id: '8', title: 'AULA 8 - Projeto Final', xp: 50, status: 'not_started', videoUrl: SAMPLE_VIDEO },
+    { id: '9', title: 'AULA 9 - Certificação', xp: 100, status: 'not_started', videoUrl: SAMPLE_VIDEO },
 ];
 
 export function CoursesTab() {

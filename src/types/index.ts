@@ -146,7 +146,7 @@ export interface Lesson {
 
 export type LessonType = 'video' | 'text' | 'quiz' | 'interactive';
 
-export type LessonStatus = 'locked' | 'available' | 'in_progress' | 'completed';
+export type LessonStatus = 'locked' | 'available' | 'in_progress' | 'completed' | 'not_started';
 
 export interface LessonProgress {
     lessonId: string;
