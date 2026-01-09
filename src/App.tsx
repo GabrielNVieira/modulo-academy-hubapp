@@ -8,7 +8,7 @@
  */
 
 import { useState } from 'react';
-import { GraduationCap, BookOpen, Target, Loader2 } from 'lucide-react';
+import { GraduationCap, BookOpen, Target } from 'lucide-react';
 import { useHubContext, useProgress } from './hooks';
 
 // Layout Components
@@ -73,7 +73,7 @@ const academyConfig: AcademyModuleConfig = {
 
 export default function App() {
     const [activeTab, setActiveTab] = useState('progresso');
-    const { isLoading: hubLoading, isConnected, error: hubError } = useHubContext();
+    const { isConnected } = useHubContext();
     const { progress, stats, streak, currentLevel, isLoading: progressLoading } = useProgress();
 
     // EFEITO DE RESET (RE-ATIVADO A PEDIDO DO USUÁRIO)

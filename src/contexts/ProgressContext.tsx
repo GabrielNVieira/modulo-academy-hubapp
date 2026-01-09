@@ -1,7 +1,7 @@
 
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { UserProgress, UserStats, Streak, Level } from '../types';
-import { progressRepository } from '../services';
+
 import { useHubContext } from '../hooks/useHubContext';
 import { isSupabaseReady } from '../lib/supabase';
 
@@ -180,7 +180,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
 
                 // Determinar se completou missão ou aula
                 const isMission = source.toLowerCase().includes('missão');
-                const isLesson = source.toLowerCase().includes('aula');
+
 
                 return {
                     ...prevStats,
