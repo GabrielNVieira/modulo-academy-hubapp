@@ -255,6 +255,7 @@ export function CoursesTab() {
                 courseTitle="Curso: Introdução ao Webhook"
                 xpReward={selectedLesson.xp}
                 videoUrl={selectedLesson.videoUrl || "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"}
+                status={selectedLesson.status}
                 onBack={handleClosePlayer}
                 onStatusChange={handleStatusChange}
                 initialTime={initialTime}

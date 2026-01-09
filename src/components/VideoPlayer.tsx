@@ -41,6 +41,7 @@ interface VideoPlayerProps {
   onBack?: () => void;
   onComplete?: () => void; // Mantido para compatibilidade, mas idealmente usaria onStatusChange
   onStatusChange?: (status: LessonStatus) => void;
+  status?: LessonStatus;
   initialTime?: number; // Tempo inicial em segundos
   onProgressUpdate?: (currentTime: number, percentage: number) => void;
 }
@@ -79,6 +80,7 @@ export function VideoPlayer({
   onBack,
   onComplete,
   onStatusChange,
+  status = 'not_started',
   initialTime = 0,
   onProgressUpdate
 }: VideoPlayerProps) {
@@ -86,6 +88,7 @@ export function VideoPlayer({
   const [isPlaying, setIsPlaying] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
+  const [maxWatchedTime, setMaxWatchedTime] = useState(initialTime);
   const [duration, setDuration] = useState(300); // 5 minutos default
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
@@ -373,7 +376,16 @@ export function VideoPlayer({
   // Avançar/retroceder 10 segundos
   const skip = (seconds: number) => {
     if (videoRef.current) {
-      videoRef.current.currentTime += seconds;
+      const newTime = videoRef.current.currentTime + seconds;
+
+      // Bloquear avanço se não completou
+      if (seconds > 0 && status !== 'completed' && newTime > maxWatchedTime) {
+        // Permitir ir até o máximo assistido apenas
+        videoRef.current.currentTime = maxWatchedTime;
+        return;
+      }
+
+      videoRef.current.currentTime = newTime;
     }
   };
 
@@ -391,6 +403,11 @@ export function VideoPlayer({
       const time = videoRef.current.currentTime;
       setCurrentTime(time);
 
+      // Atualizar máximo assistido
+      if (time > maxWatchedTime) {
+        setMaxWatchedTime(time);
+      }
+
       // Notificar parente a cada 5 segundos
       if (onProgressUpdate && Math.abs(time - lastProgressUpdateRef.current) > 5) {
         const percent = (time / duration) * 100;
@@ -407,6 +424,7 @@ export function VideoPlayer({
       if (initialTime > 0 && !hasSeekedRef.current) {
         videoRef.current.currentTime = initialTime;
         setCurrentTime(initialTime);
+        setMaxWatchedTime(Math.max(maxWatchedTime, initialTime));
         hasSeekedRef.current = true;
       }
     }
@@ -418,7 +436,16 @@ export function VideoPlayer({
       const rect = progressBarRef.current.getBoundingClientRect();
       const clickX = e.clientX - rect.left;
       const percentage = clickX / rect.width;
-      videoRef.current.currentTime = percentage * duration;
+      const newTime = percentage * duration;
+
+      // Bloquear seek se não completou
+      if (status !== 'completed' && newTime > maxWatchedTime) {
+        // Opcional: Visual feedback ou just clamp
+        videoRef.current.currentTime = maxWatchedTime;
+        return;
+      }
+
+      videoRef.current.currentTime = newTime;
     }
   };
 
