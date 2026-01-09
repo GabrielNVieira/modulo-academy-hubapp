@@ -120,6 +120,22 @@ export default function App() {
             isConnected={isConnected}
         >
             {renderTabContent()}
+
+            {/* TEMPORARY DEBUG BUTTON - WILL BE REMOVED FOR PRODUCTION */}
+            <button
+                onClick={() => {
+                    if (confirm('Tem certeza? Isso apagará todo o progresso LOCAL deste navegador.')) {
+                        Object.keys(localStorage).forEach(key => {
+                            if (key.startsWith('academy_')) localStorage.removeItem(key);
+                        });
+                        window.location.reload();
+                    }
+                }}
+                className="fixed bottom-4 right-4 z-[9999] bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-full shadow-lg font-bold text-xs uppercase tracking-wider transition-all hover:scale-105"
+                title="Limpar dados locais e recarregar"
+            >
+                🗑️ Reset Local
+            </button>
         </ModuleLayout>
     );
 }
