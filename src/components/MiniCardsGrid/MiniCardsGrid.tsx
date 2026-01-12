@@ -60,30 +60,23 @@ import {
   PieChart,
   AreaChart,
   Type,
-  Palette,
   Minus,
-  RotateCcw,
   Hash,
   FileText,
   Tag,
   MoreVertical,
   Trash2,
   MousePointer,
-  BarChartHorizontal,
-  Grid3X3,
-  Table2,
-  Database,
-  RefreshCw,
   Globe,
   Code,
-  Link2,
+  Database,
+  Grid3X3,
+  Table2,
   Play,
   Loader2
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
-// Dialog removido - usando painel lateral
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 
 // Recharts - Biblioteca de gráficos (todos os tipos disponíveis)
@@ -122,6 +115,72 @@ import {
   ResponsiveContainer,
   Legend as RechartsLegend
 } from 'recharts'
+
+const CustomTreemapContent = (props: any) => {
+  const { x, y, width, height, name, color, size } = props;
+  return (
+    <g>
+      <defs>
+        <linearGradient id={`treemapGrad-main-${name}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color || '#3b82f6'} stopOpacity={1} />
+          <stop offset="100%" stopColor={color || '#3b82f6'} stopOpacity={0.7} />
+        </linearGradient>
+      </defs>
+      <rect x={x} y={y} width={width} height={height} fill={`url(#treemapGrad-main-${name})`} stroke="#fff" strokeWidth={3} rx={6} style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))' }} />
+      {width > 50 && height > 30 && (
+        <>
+          <text x={x + width / 2} y={y + height / 2 - 6} textAnchor="middle" dominantBaseline="middle" fill="#fff" fontSize={11} fontWeight="600">{name}</text>
+          <text x={x + width / 2} y={y + height / 2 + 8} textAnchor="middle" dominantBaseline="middle" fill="rgba(255,255,255,0.8)" fontSize={9}>{size?.toLocaleString()}</text>
+        </>
+      )}
+    </g>
+  );
+};
+
+const CustomTreemapContent2 = (props: any) => {
+  const { x, y, width, height, index: itemIndex, name, color, size, treemapColors } = props;
+  const fillColor = color || (treemapColors && treemapColors[itemIndex]) || '#3b82f6';
+  return (
+    <g>
+      <rect
+        x={x}
+        y={y}
+        width={width}
+        height={height}
+        fill={fillColor}
+        stroke="#fff"
+        strokeWidth={3}
+        rx={6}
+        style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))' }}
+      />
+      {width > 50 && height > 30 && (
+        <>
+          <text
+            x={x + width / 2}
+            y={y + height / 2 - 6}
+            textAnchor="middle"
+            dominantBaseline="middle"
+            fill="#fff"
+            fontSize={11}
+            fontWeight="600"
+          >
+            {name}
+          </text>
+          <text
+            x={x + width / 2}
+            y={y + height / 2 + 8}
+            textAnchor="middle"
+            dominantBaseline="middle"
+            fill="rgba(255,255,255,0.8)"
+            fontSize={9}
+          >
+            {size?.toLocaleString()}
+          </text>
+        </>
+      )}
+    </g>
+  );
+};
 
 // ============================================
 // TIPOS E INTERFACES
@@ -187,7 +246,7 @@ export interface MetricaConfig {
   cor: string
   borderColor: string
   getValue: (data: MetricaData) => number | string
-  categoria: 'filas' | 'investigadores' | 'performance' | 'financeiro'
+  categoria: string
   // Componentes do canvas para cards customizados
   canvasComponents?: CanvasComponent[]
   canvasConfig?: {
@@ -195,6 +254,7 @@ export interface MetricaConfig {
     gridRows: number
     colorScheme: string
   }
+  renderCustom?: (data: MetricaData) => React.ReactNode
 }
 
 export interface MetricaData {
@@ -766,10 +826,6 @@ export function MiniCardsGrid({
   const [editCardId, setEditCardId] = useState<string | null>(null)
   const [isCreatingNewCard, setIsCreatingNewCard] = useState(false)
 
-  // Estado para armazenar configurações personalizadas dos cards
-  const [cardConfigs, setCardConfigs] = useState<Record<string, CardEditorConfig>>({})
-
-  // Estado para cards personalizados criados pelo usuário
   const [customCards, setCustomCards] = useState<MetricaConfig[]>([])
 
   // Combinar métricas disponíveis com cards personalizados
@@ -1460,8 +1516,8 @@ export function MiniCardsGrid({
             {resizingInfo && (
               <div
                 className={`rounded-xl border-2 border-dashed transition-all duration-150 ${resizePreviewMetricas
-                    ? 'border-primary bg-primary/10'
-                    : 'border-slate-400 bg-slate-200/50'
+                  ? 'border-primary bg-primary/10'
+                  : 'border-slate-400 bg-slate-200/50'
                   }`}
                 style={{
                   gridRow: `${resizingInfo.row + 1} / span ${resizingInfo.rows}`,
@@ -1515,7 +1571,7 @@ export function MiniCardsGrid({
                   isRelocating={isBeingRelocated}
                   useAbsolutePosition={hasGridDimensions}
                   pixelPosition={hasGridDimensions ? { x, y, width, height } : undefined}
-                  customConfig={cardConfigs[metrica.id]}
+                  customConfig={undefined}
                   style={{
                     opacity: isBeingDragged ? 0.3 : 1,
                     zIndex: isBeingRelocated ? 50 : isBeingDragged ? 1000 : 1
@@ -1903,13 +1959,13 @@ interface SortableMetricCardProps {
   isRelocating?: boolean
   useAbsolutePosition?: boolean
   pixelPosition?: { x: number; y: number; width: number; height: number }
-  customConfig?: CardEditorConfig
+  customConfig?: any
 }
 
 function SortableMetricCard({
   metrica,
   data,
-  size,
+  size: _size,
   sizeConfig,
   row,
   col,
@@ -1991,7 +2047,7 @@ function SortableMetricCard({
     lg: 1,
     xl: 1.2
   }
-  const fontMultiplier = fontSizeMultipliers[customConfig?.fontSize || 'lg']
+  const fontMultiplier = (fontSizeMultipliers as any)[customConfig?.fontSize || 'lg']
   const titleSize = Math.round(baseTitleSize * fontMultiplier)
   const valueSize = Math.round(baseValueSize * fontMultiplier)
   const descSize = Math.round(baseDescSize * fontMultiplier)
@@ -2586,23 +2642,7 @@ function SortableMetricCard({
                 aspectRatio={4 / 3}
                 stroke="#fff"
                 animationDuration={800}
-                content={({ x, y, width, height, name, color, size }: any) => (
-                  <g>
-                    <defs>
-                      <linearGradient id={`treemapGrad-main-${name}`} x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor={color || '#3b82f6'} stopOpacity={1} />
-                        <stop offset="100%" stopColor={color || '#3b82f6'} stopOpacity={0.7} />
-                      </linearGradient>
-                    </defs>
-                    <rect x={x} y={y} width={width} height={height} fill={`url(#treemapGrad-main-${name})`} stroke="#fff" strokeWidth={3} rx={6} style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))' }} />
-                    {width > 50 && height > 30 && (
-                      <>
-                        <text x={x + width / 2} y={y + height / 2 - 6} textAnchor="middle" dominantBaseline="middle" fill="#fff" fontSize={11} fontWeight="600">{name}</text>
-                        <text x={x + width / 2} y={y + height / 2 + 8} textAnchor="middle" dominantBaseline="middle" fill="rgba(255,255,255,0.8)" fontSize={9}>{size?.toLocaleString()}</text>
-                      </>
-                    )}
-                  </g>
-                )}
+                content={<CustomTreemapContent />}
               />
             </ResponsiveContainer>
           </div>
@@ -2937,421 +2977,7 @@ function SortableMetricCard({
 // COMPONENTE CARD EDITOR MODAL (CANVAS)
 // ============================================
 
-interface CardEditorConfig {
-  titulo: string
-  descricao: string
-  categoria: string
-  chartType: 'none' | 'bar' | 'line' | 'area' | 'pie'
-  fontSize: 'sm' | 'md' | 'lg' | 'xl'
-  showTrend: boolean
-  colorScheme: string
-}
 
-interface CardEditorModalProps {
-  cardId: string
-  availableMetrics: MetricaConfig[]
-  data: Record<string, unknown>
-  initialConfig?: CardEditorConfig
-  onClose: () => void
-  onSave: (config: CardEditorConfig) => void
-}
-
-function CardEditorModal({ cardId, availableMetrics, data, initialConfig, onClose, onSave }: CardEditorModalProps) {
-  const metrica = availableMetrics.find(m => m.id === cardId)
-
-  const [config, setConfig] = useState<CardEditorConfig>(initialConfig || {
-    titulo: metrica?.titulo || '',
-    descricao: metrica?.descricao || '',
-    categoria: metrica?.categoria || 'filas',
-    chartType: 'none',
-    fontSize: 'lg',
-    showTrend: true,
-    colorScheme: metrica?.cor || 'text-blue-600'
-  })
-
-  if (!metrica) return null
-
-  const Icon = metrica.icon
-  const value = metrica.getValue(data)
-
-  const fontSizes = {
-    sm: { value: 'text-2xl', title: 'text-xs', desc: 'text-xs' },
-    md: { value: 'text-3xl', title: 'text-sm', desc: 'text-xs' },
-    lg: { value: 'text-4xl', title: 'text-base', desc: 'text-sm' },
-    xl: { value: 'text-5xl', title: 'text-lg', desc: 'text-base' }
-  }
-
-  const colorOptions = [
-    { id: 'text-blue-600', bg: 'bg-blue-100', border: 'border-blue-200', label: 'Azul' },
-    { id: 'text-emerald-600', bg: 'bg-emerald-100', border: 'border-emerald-200', label: 'Verde' },
-    { id: 'text-amber-600', bg: 'bg-amber-100', border: 'border-amber-200', label: 'Âmbar' },
-    { id: 'text-rose-600', bg: 'bg-rose-100', border: 'border-rose-200', label: 'Rosa' },
-    { id: 'text-purple-600', bg: 'bg-purple-100', border: 'border-purple-200', label: 'Roxo' },
-    { id: 'text-slate-600', bg: 'bg-slate-100', border: 'border-slate-200', label: 'Cinza' }
-  ]
-
-  const chartOptions = [
-    { id: 'none', icon: Minus, label: 'Sem gráfico' },
-    { id: 'bar', icon: BarChart3, label: 'Barras' },
-    { id: 'line', icon: LineChart, label: 'Linha' },
-    { id: 'area', icon: AreaChart, label: 'Área' },
-    { id: 'pie', icon: PieChart, label: 'Pizza' }
-  ]
-
-  const currentFontSize = fontSizes[config.fontSize]
-  const currentColor = colorOptions.find(c => c.id === config.colorScheme) || colorOptions[0]
-
-  // Mini gráfico de exemplo
-  const renderMiniChart = () => {
-    if (config.chartType === 'none') return null
-
-    const chartHeight = 40
-    const data = [30, 45, 28, 55, 42, 60, 48]
-
-    if (config.chartType === 'bar') {
-      return (
-        <div className="flex items-end gap-1 h-10 mt-2">
-          {data.map((v, i) => (
-            <div
-              key={i}
-              className={`flex-1 rounded-t ${currentColor.bg}`}
-              style={{ height: `${(v / 60) * chartHeight}px` }}
-            />
-          ))}
-        </div>
-      )
-    }
-
-    if (config.chartType === 'line' || config.chartType === 'area') {
-      const points = data.map((v, i) => `${(i / (data.length - 1)) * 100},${100 - (v / 60) * 100}`).join(' ')
-      return (
-        <svg viewBox="0 0 100 100" className="h-10 w-full mt-2" preserveAspectRatio="none">
-          {config.chartType === 'area' && (
-            <polygon
-              points={`0,100 ${points} 100,100`}
-              className={`${currentColor.bg} opacity-50`}
-              fill="currentColor"
-            />
-          )}
-          <polyline
-            points={points}
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="3"
-            className={config.colorScheme}
-          />
-        </svg>
-      )
-    }
-
-    if (config.chartType === 'pie') {
-      return (
-        <div className="flex justify-center mt-2">
-          <svg viewBox="0 0 32 32" className="h-10 w-10">
-            <circle r="16" cx="16" cy="16" className="fill-slate-100" />
-            <circle
-              r="8"
-              cx="16"
-              cy="16"
-              fill="transparent"
-              stroke="currentColor"
-              strokeWidth="16"
-              strokeDasharray="35 65"
-              transform="rotate(-90 16 16)"
-              className={config.colorScheme}
-            />
-          </svg>
-        </div>
-      )
-    }
-
-    return null
-  }
-
-  return (
-    <>
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[10000]"
-        onClick={onClose}
-      />
-
-      {/* Modal */}
-      <div className="fixed inset-4 md:inset-8 lg:inset-12 z-[10001] flex items-center justify-center pointer-events-none">
-        <div
-          className="pointer-events-auto bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-5xl max-h-full flex flex-col animate-scaleIn overflow-hidden"
-        >
-          {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
-            <div className="flex items-center gap-3">
-              <div className={`p-2 rounded-lg ${currentColor.bg}`}>
-                <Icon className={`h-5 w-5 ${config.colorScheme}`} />
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold text-neutral-800">
-                  Editor de Card
-                </h2>
-                <p className="text-sm text-slate-500">
-                  Personalize a aparência e conteúdo do card
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={onClose}
-              className="p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-
-          {/* Content - Canvas e Controles */}
-          <div className="flex-1 flex min-h-0 overflow-hidden">
-            {/* Canvas - Preview do Card */}
-            <div className="flex-1 bg-slate-50 p-8 flex items-center justify-center overflow-auto">
-              <div className="relative">
-                {/* Fundo com grid */}
-                <div className="absolute inset-0 -m-8 opacity-30"
-                  style={{
-                    backgroundImage: 'radial-gradient(circle, #cbd5e1 1px, transparent 1px)',
-                    backgroundSize: '20px 20px'
-                  }}
-                />
-
-                {/* Card Preview */}
-                <div
-                  className={`card-modern border ${currentColor.border} p-6 relative transition-all duration-300`}
-                  style={{ width: '320px', minHeight: '200px' }}
-                >
-                  {/* Header do card */}
-                  <div className="flex items-center justify-between mb-4">
-                    <span className={`text-neutral-600 font-medium ${currentFontSize.title} truncate pr-2`}>
-                      {config.titulo || 'Título do Card'}
-                    </span>
-                    <Icon className={`h-6 w-6 ${config.colorScheme} shrink-0`} />
-                  </div>
-
-                  {/* Valor */}
-                  <div className="flex-1 flex flex-col">
-                    <div className={`font-bold ${config.colorScheme} ${currentFontSize.value}`}>
-                      {value}
-                    </div>
-
-                    {/* Tendência */}
-                    {config.showTrend && (
-                      <div className="flex items-center gap-1 mt-1">
-                        <TrendingUp className="h-4 w-4 text-emerald-500" />
-                        <span className="text-emerald-600 text-sm font-medium">+12%</span>
-                        <span className="text-slate-400 text-xs">vs mês anterior</span>
-                      </div>
-                    )}
-
-                    {/* Gráfico */}
-                    {renderMiniChart()}
-
-                    {/* Descrição */}
-                    <p className={`text-neutral-500 ${currentFontSize.desc} mt-3`}>
-                      {config.descricao || 'Descrição do card'}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Indicador de tamanho */}
-                <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-xs text-slate-400">
-                  320 x 200px (1x1)
-                </div>
-              </div>
-            </div>
-
-            {/* Painel de Controles */}
-            <div className="w-[480px] border-l border-slate-200 bg-white flex flex-col overflow-hidden">
-              <ScrollArea className="flex-1 min-h-0">
-                <div className="p-5 space-y-6">
-                  {/* Seção: Conteúdo */}
-                  <div className="space-y-4">
-                    <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                      <Type className="h-4 w-4" />
-                      Conteúdo
-                    </h3>
-
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                        Título
-                      </label>
-                      <input
-                        type="text"
-                        value={config.titulo}
-                        onChange={(e) => setConfig(prev => ({ ...prev, titulo: e.target.value }))}
-                        className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                        Descrição
-                      </label>
-                      <textarea
-                        value={config.descricao}
-                        onChange={(e) => setConfig(prev => ({ ...prev, descricao: e.target.value }))}
-                        rows={2}
-                        className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all resize-none"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                        Categoria
-                      </label>
-                      <select
-                        value={config.categoria}
-                        onChange={(e) => setConfig(prev => ({ ...prev, categoria: e.target.value }))}
-                        className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-                      >
-                        <option value="filas">Filas & Regras</option>
-                        <option value="investigadores">Investigadores</option>
-                        <option value="performance">Performance</option>
-                        <option value="financeiro">Financeiro</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Seção: Aparência */}
-                  <div className="space-y-4">
-                    <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                      <Palette className="h-4 w-4" />
-                      Aparência
-                    </h3>
-
-                    {/* Cores */}
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
-                        Cor do tema
-                      </label>
-                      <div className="grid grid-cols-6 gap-2">
-                        {colorOptions.map(color => (
-                          <button
-                            key={color.id}
-                            onClick={() => setConfig(prev => ({ ...prev, colorScheme: color.id }))}
-                            className={`w-full aspect-square rounded-lg border-2 transition-all ${config.colorScheme === color.id
-                                ? `${color.border} ring-2 ring-offset-1 ring-slate-400`
-                                : 'border-transparent hover:border-slate-200'
-                              } ${color.bg}`}
-                            title={color.label}
-                          />
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Tamanho da fonte */}
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
-                        Tamanho do valor
-                      </label>
-                      <div className="flex gap-1">
-                        {(['sm', 'md', 'lg', 'xl'] as const).map(size => (
-                          <button
-                            key={size}
-                            onClick={() => setConfig(prev => ({ ...prev, fontSize: size }))}
-                            className={`flex-1 py-2 px-3 text-xs font-medium rounded-lg border transition-all ${config.fontSize === size
-                                ? 'bg-primary text-white border-primary'
-                                : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
-                              }`}
-                          >
-                            {size.toUpperCase()}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Mostrar tendência */}
-                    <div className="flex items-center justify-between">
-                      <label className="text-sm font-medium text-slate-700">
-                        Mostrar tendência
-                      </label>
-                      <button
-                        onClick={() => setConfig(prev => ({ ...prev, showTrend: !prev.showTrend }))}
-                        className={`w-11 h-6 rounded-full transition-all ${config.showTrend ? 'bg-primary' : 'bg-slate-200'
-                          }`}
-                      >
-                        <div className={`w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${config.showTrend ? 'translate-x-5' : 'translate-x-0.5'
-                          }`} />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Seção: Gráfico */}
-                  <div className="space-y-4">
-                    <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                      <BarChart3 className="h-4 w-4" />
-                      Gráfico
-                    </h3>
-
-                    <div className="grid grid-cols-5 gap-2">
-                      {chartOptions.map(chart => {
-                        const ChartIcon = chart.icon
-                        return (
-                          <button
-                            key={chart.id}
-                            onClick={() => setConfig(prev => ({ ...prev, chartType: chart.id as CardEditorConfig['chartType'] }))}
-                            className={`p-3 rounded-lg border-2 transition-all flex flex-col items-center gap-1 ${config.chartType === chart.id
-                                ? 'border-primary bg-primary/5'
-                                : 'border-slate-200 hover:border-slate-300'
-                              }`}
-                            title={chart.label}
-                          >
-                            <ChartIcon className={`h-5 w-5 ${config.chartType === chart.id ? 'text-primary' : 'text-slate-500'
-                              }`} />
-                          </button>
-                        )
-                      })}
-                    </div>
-                    <p className="text-xs text-slate-500">
-                      {chartOptions.find(c => c.id === config.chartType)?.label || 'Nenhum'}
-                    </p>
-                  </div>
-
-                  {/* Reset */}
-                  <button
-                    onClick={() => setConfig({
-                      titulo: metrica.titulo,
-                      descricao: metrica.descricao,
-                      categoria: metrica.categoria,
-                      chartType: 'none',
-                      fontSize: 'lg',
-                      showTrend: true,
-                      colorScheme: metrica.cor
-                    })}
-                    className="w-full py-2 px-3 text-sm text-slate-600 hover:text-slate-800 border border-slate-200 hover:border-slate-300 rounded-lg transition-all flex items-center justify-center gap-2"
-                  >
-                    <RotateCcw className="h-4 w-4" />
-                    Restaurar padrão
-                  </button>
-                </div>
-              </ScrollArea>
-
-              {/* Footer com botões */}
-              <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-2 shrink-0">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={onClose}
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={() => onSave(config)}
-                  className="bg-primary hover:bg-primary/90 text-white"
-                >
-                  Salvar alterações
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </>
-  )
-}
 
 // ============================================
 // COMPONENTE DRAGGABLE PANEL ITEM (MINIATURA)
@@ -3428,15 +3054,15 @@ function DraggablePanelItem({
         }
       }}
       className={`group relative transition-all duration-200 ${isActive
-          ? 'cursor-pointer'
-          : 'cursor-grab active:cursor-grabbing'
+        ? 'cursor-pointer'
+        : 'cursor-grab active:cursor-grabbing'
         } ${(isDragging || isCurrentlyDragging) ? 'opacity-40 scale-95' : 'hover:scale-[1.02]'}`}
     >
       {/* Miniatura do Card */}
       <div
         className={`relative rounded-xl border overflow-hidden transition-all duration-200 ${isActive
-            ? 'border-primary ring-2 ring-primary/30 shadow-lg shadow-primary/10'
-            : 'border-slate-200 hover:border-slate-300 hover:shadow-md'
+          ? 'border-primary ring-2 ring-primary/30 shadow-lg shadow-primary/10'
+          : 'border-slate-200 hover:border-slate-300 hover:shadow-md'
           }`}
         style={{
           background: 'rgba(255, 255, 255, 0.95)',
@@ -3563,7 +3189,7 @@ function CardCreatorModal({ onClose, onCreate, editCard }: CardCreatorModalProps
   const isEditing = !!editCard
 
   const [cardName, setCardName] = useState(editCard?.titulo || 'Novo Card')
-  const [categoria, setCategoria] = useState<'filas' | 'investigadores' | 'performance' | 'financeiro'>(editCard?.categoria || 'performance')
+  const [categoria] = useState<string>(editCard?.categoria || 'performance')
 
   // Extrair colorScheme do card existente
   const getColorSchemeFromCard = (card?: MetricaConfig): string => {
@@ -3585,13 +3211,7 @@ function CardCreatorModal({ onClose, onCreate, editCard }: CardCreatorModalProps
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
   const canvasRef = useRef<HTMLDivElement>(null)
 
-  // Componentes default para novo card
-  const defaultComponents: CanvasComponent[] = [
-    { id: 'comp-1', type: 'title', x: 0, y: 0, width: 8, height: 1, props: { text: 'Título do Card' } },
-    { id: 'comp-2', type: 'value', x: 0, y: 1, width: 4, height: 2, props: { text: '1.234', size: 'xl' } },
-    { id: 'comp-3', type: 'chart-bar', x: 4, y: 1, width: 8, height: 3, props: { data: [30, 45, 28, 55, 42, 60, 48] } },
-    { id: 'comp-4', type: 'trend', x: 0, y: 3, width: 4, height: 1, props: { value: '+12%', direction: 'up' } }
-  ]
+
 
   // Componentes no canvas com posição 2D - usar do card existente ou vazio para novo
   const [components, setComponents] = useState<CanvasComponent[]>(
@@ -4994,49 +4614,7 @@ function CardCreatorModal({ onClose, onCreate, editCard }: CardCreatorModalProps
                 aspectRatio={4 / 3}
                 stroke="#fff"
                 animationDuration={0}
-                content={({ x, y, width, height, name, color, size, index: itemIndex }: any) => {
-                  const fillColor = color || treemapColors[itemIndex] || '#3b82f6'
-                  return (
-                    <g>
-                      <rect
-                        x={x}
-                        y={y}
-                        width={width}
-                        height={height}
-                        fill={fillColor}
-                        stroke="#fff"
-                        strokeWidth={3}
-                        rx={6}
-                        style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))' }}
-                      />
-                      {width > 50 && height > 30 && (
-                        <>
-                          <text
-                            x={x + width / 2}
-                            y={y + height / 2 - 6}
-                            textAnchor="middle"
-                            dominantBaseline="middle"
-                            fill="#fff"
-                            fontSize={11}
-                            fontWeight="600"
-                          >
-                            {name}
-                          </text>
-                          <text
-                            x={x + width / 2}
-                            y={y + height / 2 + 8}
-                            textAnchor="middle"
-                            dominantBaseline="middle"
-                            fill="rgba(255,255,255,0.8)"
-                            fontSize={9}
-                          >
-                            {size?.toLocaleString()}
-                          </text>
-                        </>
-                      )}
-                    </g>
-                  )
-                }}
+                content={<CustomTreemapContent2 treemapColors={treemapColors} />}
               />
             </ResponsiveContainer>
           </div>
@@ -5161,8 +4739,8 @@ function CardCreatorModal({ onClose, onCreate, editCard }: CardCreatorModalProps
       <div
         key={comp.id}
         className={`absolute group rounded-lg border-2 transition-all overflow-hidden ${isSelected
-            ? 'border-primary shadow-lg shadow-primary/20 z-20'
-            : 'border-transparent hover:border-slate-300 z-10'
+          ? 'border-primary shadow-lg shadow-primary/20 z-20'
+          : 'border-transparent hover:border-slate-300 z-10'
           } ${isDragging && selectedComponentId === comp.id ? 'cursor-grabbing opacity-90' : 'cursor-grab'}`}
         style={{
           left: comp.x * CELL_SIZE,
@@ -5257,8 +4835,8 @@ function CardCreatorModal({ onClose, onCreate, editCard }: CardCreatorModalProps
                   key={size}
                   onClick={() => updateComponentProps(selectedComponent.id, { size })}
                   className={`flex-1 py-1.5 text-xs font-medium rounded-lg border transition-all ${props.size === size
-                      ? 'bg-primary text-white border-primary'
-                      : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                    ? 'bg-primary text-white border-primary'
+                    : 'border-slate-200 text-slate-600 hover:border-slate-300'
                     }`}
                 >
                   {size.toUpperCase()}
@@ -5763,8 +5341,8 @@ function CardCreatorModal({ onClose, onCreate, editCard }: CardCreatorModalProps
                       ))
                     }}
                     className={`flex items-center justify-center gap-1 py-1.5 text-[10px] font-medium rounded-lg border transition-all ${(selectedComponent.dataSource?.type || 'static') === opt.type
-                        ? 'bg-primary text-white border-primary'
-                        : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                      ? 'bg-primary text-white border-primary'
+                      : 'border-slate-200 text-slate-600 hover:border-slate-300'
                       }`}
                   >
                     {opt.icon}
@@ -5826,14 +5404,14 @@ function CardCreatorModal({ onClose, onCreate, editCard }: CardCreatorModalProps
                 </div>
 
                 {/* Preview do dataset selecionado */}
-                {selectedComponent.props.mockDatasetId && (
+                {(selectedComponent.props as any).mockDatasetId && (
                   <div className="p-2 rounded-lg bg-emerald-50 border border-emerald-200">
                     <div className="flex items-center gap-1 text-emerald-700 font-medium text-xs mb-1">
                       <CheckCircle className="h-3 w-3" />
-                      {getMockDataset(selectedComponent.props.mockDatasetId as string)?.name}
+                      {(getMockDataset((selectedComponent.props as any).mockDatasetId as string) as any)?.name}
                     </div>
                     <p className="text-[10px] text-emerald-600 mb-2">
-                      {getMockDataset(selectedComponent.props.mockDatasetId as string)?.description}
+                      {(getMockDataset((selectedComponent.props as any).mockDatasetId as string) as any)?.description}
                     </p>
                     <div className="max-h-20 overflow-auto">
                       <table className="w-full text-[10px]">
@@ -5844,15 +5422,15 @@ function CardCreatorModal({ onClose, onCreate, editCard }: CardCreatorModalProps
                           </tr>
                         </thead>
                         <tbody className="text-emerald-800">
-                          {getMockDataset(selectedComponent.props.mockDatasetId as string)?.data.slice(0, 5).map((d, i) => (
+                          {(getMockDataset((selectedComponent.props as any).mockDatasetId as string) as any)?.data?.slice(0, 5).map((d: any, i: number) => (
                             <tr key={i}>
-                              <td className="pr-2">{d.label}</td>
-                              <td>{d.value.toLocaleString()}</td>
+                              <td className="pr-2 text-emerald-999">{d.label}</td>
+                              <td>{d.value?.toLocaleString() || '0'}</td>
                             </tr>
                           ))}
-                          {(getMockDataset(selectedComponent.props.mockDatasetId as string)?.data.length || 0) > 5 && (
+                          {((getMockDataset((selectedComponent.props as any).mockDatasetId as string) as any)?.data?.length || 0) > 5 && (
                             <tr className="text-emerald-500 italic">
-                              <td colSpan={2}>...e mais {(getMockDataset(selectedComponent.props.mockDatasetId as string)?.data.length || 0) - 5} registros</td>
+                              <td colSpan={2}>...e mais {((getMockDataset((selectedComponent.props as any).mockDatasetId as string) as any)?.data?.length || 0) - 5} registros</td>
                             </tr>
                           )}
                         </tbody>
@@ -5902,8 +5480,8 @@ function CardCreatorModal({ onClose, onCreate, editCard }: CardCreatorModalProps
                           ))
                         }}
                         className={`flex-1 py-1 text-xs font-medium rounded border transition-all ${selectedComponent.dataSource?.method === method
-                            ? 'bg-primary text-white border-primary'
-                            : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                          ? 'bg-primary text-white border-primary'
+                          : 'border-slate-200 text-slate-600 hover:border-slate-300'
                           }`}
                       >
                         {method}
@@ -6105,8 +5683,8 @@ function CardCreatorModal({ onClose, onCreate, editCard }: CardCreatorModalProps
                   }}
                   disabled={testingConnection}
                   className={`mt-3 w-full flex items-center justify-center gap-2 py-2 text-xs font-medium rounded-lg transition-all ${testingConnection
-                      ? 'bg-slate-200 text-slate-400 cursor-wait'
-                      : 'bg-primary/10 hover:bg-primary/20 text-primary'
+                    ? 'bg-slate-200 text-slate-400 cursor-wait'
+                    : 'bg-primary/10 hover:bg-primary/20 text-primary'
                     }`}
                 >
                   {testingConnection ? (
@@ -6125,8 +5703,8 @@ function CardCreatorModal({ onClose, onCreate, editCard }: CardCreatorModalProps
                 {/* Resultado do teste */}
                 {testResult && (
                   <div className={`mt-2 p-2 rounded-lg text-xs ${testResult.success
-                      ? 'bg-emerald-50 border border-emerald-200'
-                      : 'bg-rose-50 border border-rose-200'
+                    ? 'bg-emerald-50 border border-emerald-200'
+                    : 'bg-rose-50 border border-rose-200'
                     }`}>
                     {testResult.success ? (
                       <>
@@ -6286,8 +5864,8 @@ function CardCreatorModal({ onClose, onCreate, editCard }: CardCreatorModalProps
                           key={color.id}
                           onClick={() => setColorScheme(color.id)}
                           className={`w-full aspect-square rounded-lg border-2 transition-all ${colorScheme === color.id
-                              ? `${color.border} ring-2 ring-offset-1 ring-slate-400`
-                              : 'border-transparent hover:border-slate-200'
+                            ? `${color.border} ring-2 ring-offset-1 ring-slate-400`
+                            : 'border-transparent hover:border-slate-200'
                             } ${color.bg}`}
                           title={color.label}
                         />

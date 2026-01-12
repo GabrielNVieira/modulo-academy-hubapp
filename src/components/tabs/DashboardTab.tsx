@@ -1,4 +1,3 @@
-import React from 'react';
 import { MiniCardsGrid } from '../MiniCardsGrid';
 import { LayoutGrid } from 'lucide-react';
 
