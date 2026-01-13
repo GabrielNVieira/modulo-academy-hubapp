@@ -118,7 +118,7 @@ export const METRICAS_PROGRESSO: MetricaConfig[] = [
         categoria: 'Geral',
         icon: GraduationCap,
         cor: 'text-primary',
-        borderColor: 'border-primary/20',
+        borderColor: 'border-border', // Standard border
         getValue: () => '',
         renderCustom: (data: any) => <ProfileCardRender data={data} />,
         canvasConfig: { gridCols: 12, gridRows: 8, colorScheme: 'blue' }
@@ -245,10 +245,17 @@ export const OPTIMIZED_LAYOUT_PROGRESSO: MetricaAtiva[] = [
 
 // Layout Final Definido
 export const FINAL_LAYOUT: MetricaAtiva[] = [
+    // Coluna 0-1: Profile (2x3)
     { id: 'profile-hero', size: '2x3', row: 0, col: 0 },
-    { id: 'streak-stats', size: '1x2', row: 0, col: 2 },
+
+    // Coluna 2: Stats empilhados (1x1 cada)
+    { id: 'stats-courses', size: '1x1', row: 0, col: 2 },
+    { id: 'stats-missions', size: '1x1', row: 1, col: 2 },
     { id: 'stats-badges', size: '1x1', row: 2, col: 2 },
-    { id: 'stats-courses', size: '1x1', row: 0, col: 3 },
-    { id: 'stats-missions', size: '1x1', row: 1, col: 3 },
+
+    // Coluna 3: Streak (1x3) - Altura total
+    { id: 'streak-stats', size: '1x3', row: 0, col: 3 },
+
+    // Coluna 4: Tree (1x3) - Altura total
     { id: 'progress-tree-placeholder', size: '1x3', row: 0, col: 4 }
 ];

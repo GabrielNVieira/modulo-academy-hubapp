@@ -619,7 +619,7 @@ export function getMockDatasetsByCategory(category: MockDataset['category']): Mo
 // ============================================
 
 const GRID_COLS = 5
-const MAX_GRID_ROWS = 5
+const MAX_GRID_ROWS = 8
 
 // ============================================
 // MÉTRICAS DISPONÍVEIS (personalize conforme necessário)
@@ -969,7 +969,7 @@ export function MiniCardsGrid({
   ): { row: number; col: number } | null => {
     const { cols: cardCols, rows: cardRows } = parseCardSize(cardSize)
 
-    for (let row = 0; row < MAX_GRID_ROWS; row++) {
+    for (let row = 0; row <= MAX_GRID_ROWS - cardRows; row++) {
       for (let col = 0; col <= GRID_COLS - cardCols; col++) {
         let canPlace = true
         for (let r = 0; r < cardRows && canPlace; r++) {
@@ -1148,10 +1148,50 @@ export function MiniCardsGrid({
       // Verificar se o card foi solto em posição válida
       const droppedCard = previewMetricas.find(m => m.id === activeId)
       if (droppedCard && droppedCard.row >= 0 && droppedCard.col >= 0) {
-        // Posição válida - aplicar preview (funciona tanto para cards existentes quanto do painel)
-        setMetricasAtivas(previewMetricas)
+        // Validar que o card NÃO excede os limites do grid
+        const { cols: cardCols, rows: cardRows } = parseCardSize(droppedCard.size)
+        const fitsHorizontally = droppedCard.col + cardCols <= GRID_COLS
+        const fitsVertically = droppedCard.row + cardRows <= MAX_GRID_ROWS
+
+        if (fitsHorizontally && fitsVertically) {
+          // Também validar todos os outros cards do preview (limites)
+          const allCardsWithinBounds = previewMetricas.every(m => {
+            const { cols, rows } = parseCardSize(m.size)
+            return m.row >= 0 && m.col >= 0 &&
+              m.col + cols <= GRID_COLS &&
+              m.row + rows <= MAX_GRID_ROWS
+          })
+
+          // E validar que NÃO há sobreposição entre cards
+          let hasOverlaps = false
+          const occupiedCells = new Set<string>()
+
+          if (allCardsWithinBounds) {
+            for (const m of previewMetricas) {
+              const { cols, rows } = parseCardSize(m.size)
+              for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                  const key = `${m.row + r},${m.col + c}`
+                  if (occupiedCells.has(key)) {
+                    hasOverlaps = true
+                    break
+                  }
+                  occupiedCells.add(key)
+                }
+                if (hasOverlaps) break
+              }
+              if (hasOverlaps) break
+            }
+          }
+
+          if (allCardsWithinBounds && !hasOverlaps) {
+            // Posição válida e sem conflitos - aplicar
+            setMetricasAtivas(previewMetricas)
+          }
+          // Se houver conflitos ou fora de limites, rejeita
+        }
+        // Se não cabe, não faz nada - o card volta à posição original
       }
-      // Se não tem posição válida, não faz nada - o card do painel simplesmente não é adicionado
     }
 
     setActiveId(null)
@@ -1212,56 +1252,10 @@ export function MiniCardsGrid({
     setMetricasAtivas([])
   }
 
-  // Otimizar grid
+  // Otimizar grid - Reseta para o layout inicial (tamanhos E posições)
   const handleOptimizeGrid = () => {
-    const sortedMetricas = [...metricasAtivas].sort((a, b) => {
-      const areaA = parseCardSize(a.size).cols * parseCardSize(a.size).rows
-      const areaB = parseCardSize(b.size).cols * parseCardSize(b.size).rows
-      return areaB - areaA
-    })
-
-    const optimizedMetricas: MetricaAtiva[] = []
-
-    for (const metrica of sortedMetricas) {
-      const { cols: cardCols, rows: cardRows } = parseCardSize(metrica.size)
-      let placed = false
-
-      for (let row = 0; row < MAX_GRID_ROWS && !placed; row++) {
-        for (let col = 0; col <= GRID_COLS - cardCols && !placed; col++) {
-          let canPlace = true
-
-          for (let r = 0; r < cardRows && canPlace; r++) {
-            for (let c = 0; c < cardCols && canPlace; c++) {
-              for (const placed of optimizedMetricas) {
-                const { cols: pCols, rows: pRows } = parseCardSize(placed.size)
-                if (
-                  row + r >= placed.row && row + r < placed.row + pRows &&
-                  col + c >= placed.col && col + c < placed.col + pCols
-                ) {
-                  canPlace = false
-                  break
-                }
-              }
-            }
-          }
-
-          if (canPlace) {
-            optimizedMetricas.push({
-              ...metrica,
-              row,
-              col
-            })
-            placed = true
-          }
-        }
-      }
-
-      if (!placed) {
-        optimizedMetricas.push(metrica)
-      }
-    }
-
-    setMetricasAtivas(optimizedMetricas)
+    // Resetar para o layout inicial que inclui os tamanhos corretos
+    setMetricasAtivas(initialMetrics.map(m => ({ ...m })))
   }
 
   // Resize handler
@@ -2916,10 +2910,15 @@ function SortableMetricCard({
         </button>
       </div>
 
-      {/* Card Content - Canvas ou Layout Padrão */}
+      {/* Card Content - Canvas ou renderCustom ou Layout Padrão */}
       {metrica.canvasComponents && metrica.canvasComponents.length > 0 ? (
         // Renderizar layout do canvas
         renderCanvasLayout()
+      ) : metrica.renderCustom ? (
+        // Renderizar conteúdo customizado (componentes interativos)
+        <div className="flex-1 h-full overflow-hidden">
+          {metrica.renderCustom(data)}
+        </div>
       ) : (
         // Layout padrão
         <div
