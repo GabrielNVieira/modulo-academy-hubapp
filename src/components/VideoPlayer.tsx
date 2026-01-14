@@ -5,7 +5,9 @@
  * sistema de notas e integração com quiz
  */
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+// Native HTML5 video - ReactPlayer removed due to compatibility issues
+
 import {
   ArrowLeft,
   Play,
@@ -95,6 +97,9 @@ export function VideoPlayer({
   const [showControls, setShowControls] = useState(true);
   const [activeTab, setActiveTab] = useState<'notas' | 'quiz'>('notas');
 
+  // Estados de carregamento e erro
+  const [isLoading, setIsLoading] = useState(true);
+
   // Estados do sistema de notas
   const [notes, setNotes] = useState<Note[]>([]);
   const [isAddingNote, setIsAddingNote] = useState(false);
@@ -114,30 +119,47 @@ export function VideoPlayer({
   });
 
   const videoRef = useRef<HTMLVideoElement>(null);
+  const playerContainerRef = useRef<HTMLDivElement>(null);
   const progressBarRef = useRef<HTMLDivElement>(null);
   const noteInputRef = useRef<HTMLTextAreaElement>(null);
   const lastProgressUpdateRef = useRef<number>(0);
   const hasSeekedRef = useRef(false);
 
-  // Forçar recarga do vídeo quando a URL mudar
+  // Forçar recarga e seek inicial quando URL mudar
   useEffect(() => {
-    if (videoRef.current) {
-      videoRef.current.load();
-      setHasStarted(false);
-      setIsPlaying(false);
-      hasSeekedRef.current = false;
-    }
+    setHasStarted(false);
+    setIsPlaying(false);
+    hasSeekedRef.current = false;
+    setIsLoading(true);
   }, [videoUrl]);
 
-  // Seek inicial quando o vídeo estiver pronto
+  // Sync play/pause state with native video element
   useEffect(() => {
-    if (initialTime > 0 && videoRef.current && !hasSeekedRef.current) {
-      // Tentar settar imediatamente se ref estiver disponível
-      videoRef.current.currentTime = initialTime;
-      setCurrentTime(initialTime);
-      hasSeekedRef.current = true;
+    if (videoRef.current) {
+      if (isPlaying) {
+        videoRef.current.play().catch(err => {
+          console.warn('Failed to play video:', err);
+          setIsPlaying(false);
+        });
+      } else {
+        videoRef.current.pause();
+      }
     }
-  }, [initialTime]);
+  }, [isPlaying]);
+
+  // Sync volume with native video element
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.volume = volume;
+    }
+  }, [volume]);
+
+  // Sync mute with native video element
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.muted = isMuted;
+    }
+  }, [isMuted]);
 
   // Chave do localStorage para esta lição
   const storageKey = `academy_notes_${lessonId}`;
@@ -347,6 +369,8 @@ export function VideoPlayer({
     if (videoRef.current) {
       videoRef.current.currentTime = timestamp;
       setCurrentTime(timestamp);
+      videoRef.current.play();
+      setIsPlaying(true);
     }
   };
 
@@ -362,6 +386,7 @@ export function VideoPlayer({
 
   // Formata tempo em MM:SS
   const formatTime = (seconds: number) => {
+    if (!seconds) return '0:00';
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
@@ -369,76 +394,108 @@ export function VideoPlayer({
 
   // Toggle play/pause
   const togglePlay = () => {
-    if (videoRef.current) {
-      if (isPlaying) {
-        videoRef.current.pause();
-      } else {
-        videoRef.current.play();
-        if (!hasStarted && onStatusChange) {
-          setHasStarted(true);
-          onStatusChange('in_progress');
-        }
-      }
-      setIsPlaying(!isPlaying);
+    setIsPlaying(!isPlaying);
+    if (!hasStarted && !isPlaying && onStatusChange) {
+      setHasStarted(true);
+      onStatusChange('in_progress');
     }
   };
 
   // Avançar/retroceder 10 segundos
   const skip = (seconds: number) => {
     if (videoRef.current) {
-      const newTime = videoRef.current.currentTime + seconds;
+      const current = videoRef.current.currentTime;
+      const newTime = current + seconds;
 
       // Bloquear avanço se não completou
       if (seconds > 0 && status !== 'completed' && newTime > maxWatchedTime) {
-        // Permitir ir até o máximo assistido apenas
         videoRef.current.currentTime = maxWatchedTime;
         return;
       }
 
-      videoRef.current.currentTime = newTime;
+      videoRef.current.currentTime = Math.max(0, Math.min(newTime, duration));
     }
   };
 
   // Toggle mute
   const toggleMute = () => {
-    if (videoRef.current) {
-      videoRef.current.muted = !isMuted;
-      setIsMuted(!isMuted);
-    }
+    setIsMuted(!isMuted);
   };
 
-  // Atualizar progresso
-  const handleTimeUpdate = () => {
-    if (videoRef.current) {
-      const time = videoRef.current.currentTime;
-      setCurrentTime(time);
+  // Handler de progresso do video nativo
+  const handleTimeUpdate = useCallback(() => {
+    if (!videoRef.current) return;
+    const playedSeconds = videoRef.current.currentTime;
+    setCurrentTime(playedSeconds);
 
-      // Atualizar máximo assistido
-      if (time > maxWatchedTime) {
-        setMaxWatchedTime(time);
-      }
-
-      // Notificar parente a cada 5 segundos
-      if (onProgressUpdate && Math.abs(time - lastProgressUpdateRef.current) > 5) {
-        const percent = (time / duration) * 100;
-        onProgressUpdate(time, percent);
-        lastProgressUpdateRef.current = time;
-      }
+    // Atualizar máximo assistido
+    if (playedSeconds > maxWatchedTime) {
+      setMaxWatchedTime(playedSeconds);
     }
+
+    // Notificar parente a cada 5 segundos
+    if (onProgressUpdate && Math.abs(playedSeconds - lastProgressUpdateRef.current) > 5) {
+      const percent = duration > 0 ? (playedSeconds / duration) * 100 : 0;
+      onProgressUpdate(playedSeconds, percent);
+      lastProgressUpdateRef.current = playedSeconds;
+    }
+  }, [duration, maxWatchedTime, onProgressUpdate]);
+
+  const DEFAULT_VIDEO = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
+  const finalUrl = videoUrl && videoUrl.trim() !== '' ? videoUrl.trim() : DEFAULT_VIDEO;
+
+  // Handler de Video Pronto (native video)
+  const handleCanPlay = useCallback(() => {
+    console.log("� VideoPlayer: CanPlay! URL:", finalUrl);
+    setIsLoading(false);
+
+    if (videoRef.current) {
+      const d = videoRef.current.duration;
+      console.log("⏱️ Duration from video:", d);
+      if (d > 0 && isFinite(d)) setDuration(d);
+    }
+
+    if (initialTime > 0 && !hasSeekedRef.current && videoRef.current) {
+      videoRef.current.currentTime = initialTime;
+      setMaxWatchedTime(Math.max(maxWatchedTime, initialTime));
+      hasSeekedRef.current = true;
+    }
+  }, [finalUrl, initialTime, maxWatchedTime]);
+
+  const handleLoadedMetadata = useCallback(() => {
+    if (videoRef.current) {
+      const d = videoRef.current.duration;
+      if (d > 0 && isFinite(d)) setDuration(d);
+    }
+  }, []);
+
+  const handleVideoError = (e: React.SyntheticEvent<HTMLVideoElement>) => {
+    console.error("❌ Erro no player de vídeo:", e);
+    console.error("❌ URL que falhou:", finalUrl);
+    setIsLoading(false);
   };
 
-  // Atualizar duração quando o vídeo carregar
-  const handleLoadedMetadata = () => {
-    if (videoRef.current) {
-      setDuration(videoRef.current.duration);
-      if (initialTime > 0 && !hasSeekedRef.current) {
-        videoRef.current.currentTime = initialTime;
-        setCurrentTime(initialTime);
-        setMaxWatchedTime(Math.max(maxWatchedTime, initialTime));
-        hasSeekedRef.current = true;
-      }
-    }
+  const handleWaiting = () => {
+    setIsLoading(true);
   };
+
+  const handlePlaying = () => {
+    setIsLoading(false);
+  };
+
+  // Safety Timeout for Loading State
+  useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+    if (isLoading) {
+      timeoutId = setTimeout(() => {
+        if (isLoading) {
+          console.warn("Video loading timed out, forcing display.");
+          setIsLoading(false);
+        }
+      }, 5000); // 5 segundos de limite
+    }
+    return () => clearTimeout(timeoutId);
+  }, [isLoading]);
 
   // Click na barra de progresso
   const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -450,7 +507,6 @@ export function VideoPlayer({
 
       // Bloquear seek se não completou
       if (status !== 'completed' && newTime > maxWatchedTime) {
-        // Opcional: Visual feedback ou just clamp
         videoRef.current.currentTime = maxWatchedTime;
         return;
       }
@@ -459,10 +515,22 @@ export function VideoPlayer({
     }
   };
 
+  // Request Fullscreen
+  const toggleFullscreen = () => {
+    if (playerContainerRef.current) {
+      if (!document.fullscreenElement) {
+        playerContainerRef.current.requestFullscreen().catch(err => {
+          console.error(`Error attempting to enable fullscreen: ${err.message}`);
+        });
+      } else {
+        document.exitFullscreen();
+      }
+    }
+  }
+
   // Atalhos de teclado
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
-      // Ignorar atalhos quando estiver digitando em campos de texto
       const activeElement = document.activeElement;
       const isTyping = activeElement?.tagName === 'INPUT' ||
         activeElement?.tagName === 'TEXTAREA' ||
@@ -493,7 +561,7 @@ export function VideoPlayer({
           toggleMute();
           break;
         case 'f':
-          videoRef.current?.requestFullscreen();
+          toggleFullscreen();
           break;
       }
     };
@@ -503,7 +571,7 @@ export function VideoPlayer({
   }, [isPlaying, volume]);
 
   // Porcentagem de progresso
-  const progressPercentage = (currentTime / duration) * 100;
+  const progressPercentage = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   return (
     <div className="h-screen flex flex-col bg-transparent relative">
@@ -524,147 +592,165 @@ export function VideoPlayer({
         <div className="max-w-6xl mx-auto">
           {/* Video Container */}
           <div
-            className="relative bg-black rounded-lg overflow-hidden aspect-video"
+            ref={playerContainerRef}
+            className="relative bg-gray-900 rounded-lg overflow-hidden aspect-video group"
             onMouseEnter={() => setShowControls(true)}
             onMouseLeave={() => setShowControls(isPlaying ? false : true)}
+            onClick={togglePlay}
           >
-            {/* Video Element (placeholder) */}
-            <video
-              ref={videoRef}
-              className="w-full h-full"
-              src={videoUrl}
-              onTimeUpdate={handleTimeUpdate}
-              onLoadedMetadata={handleLoadedMetadata}
-              onClick={togglePlay}
-              playsInline
-            />
-
-            {/* Play Button Overlay (when paused) */}
-            {!isPlaying && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                <button
-                  onClick={togglePlay}
-                  className="w-20 h-20 bg-white/90 hover:bg-white rounded-full flex items-center justify-center transition-all transform hover:scale-110"
-                >
-                  <Play className="h-10 w-10 text-gray-900 ml-1" />
-                </button>
+            {/* Loading/Error States Visual Overlay */}
+            {isLoading && (
+              <div className="absolute inset-0 z-30 flex items-center justify-center bg-gray-900 pointer-events-none">
+                <div className="flex flex-col items-center gap-4">
+                  <RefreshCw className="h-12 w-12 text-blue-500 animate-spin" />
+                  <div className="text-center">
+                    <p className="text-white text-base font-semibold">Carregando aula...</p>
+                  </div>
+                </div>
               </div>
             )}
+
+            {/* Native HTML5 Video Player */}
+            <div className="absolute inset-0 z-10">
+              <video
+                ref={videoRef}
+                src={finalUrl}
+                className="w-full h-full object-cover"
+                onCanPlay={handleCanPlay}
+                onLoadedMetadata={handleLoadedMetadata}
+                onTimeUpdate={handleTimeUpdate}
+                onError={handleVideoError}
+                onWaiting={handleWaiting}
+                onPlaying={handlePlaying}
+                onEnded={() => {
+                  setIsPlaying(false);
+                  if (onStatusChange) onStatusChange('completed');
+                  if (onComplete) onComplete();
+                }}
+                playsInline
+                preload="metadata"
+              />
+            </div>
 
             {/* Controls Overlay */}
-            {showControls && (
-              <div className="absolute bottom-0 left-0 right-0 bg-white border-t-2 border-gray-200">
-                {/* Progress Bar */}
+            {
+              showControls && (
                 <div
-                  ref={progressBarRef}
-                  className="w-full h-1.5 bg-gray-300 cursor-pointer group hover:h-2 transition-all"
-                  onClick={handleProgressClick}
+                  className="absolute bottom-0 left-0 right-0 bg-white border-t-2 border-gray-200 z-20"
+                  onClick={(e) => e.stopPropagation()}
                 >
+                  {/* Progress Bar */}
                   <div
-                    className="h-full bg-blue-500 relative"
-                    style={{ width: `${progressPercentage}%` }}
+                    ref={progressBarRef}
+                    className="w-full h-1.5 bg-gray-300 cursor-pointer group hover:h-2 transition-all relative"
+                    onClick={handleProgressClick}
                   >
-                    <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-blue-600 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-md"></div>
+                    <div
+                      className="h-full bg-blue-500 relative"
+                      style={{ width: `${progressPercentage}%` }}
+                    >
+                      <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-blue-600 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-md"></div>
+                    </div>
                   </div>
-                </div>
 
-                {/* Controls Row */}
-                <div className="px-4 py-3 flex items-center justify-between">
-                  {/* Left Controls */}
-                  <div className="flex items-center gap-1.5">
-                    {/* Play/Pause */}
-                    <button
-                      onClick={togglePlay}
-                      className="w-9 h-9 flex items-center justify-center text-gray-700 hover:text-blue-600 transition-colors rounded"
-                      title={isPlaying ? "Pausar" : "Reproduzir"}
-                    >
-                      {isPlaying ? (
-                        <Pause className="h-5 w-5" />
-                      ) : (
-                        <Play className="h-5 w-5" />
-                      )}
-                    </button>
+                  {/* Controls Row */}
+                  <div className="px-4 py-3 flex items-center justify-between">
+                    {/* Left Controls */}
+                    <div className="flex items-center gap-1.5">
+                      {/* Play/Pause */}
+                      <button
+                        onClick={togglePlay}
+                        className="w-9 h-9 flex items-center justify-center text-gray-700 hover:text-blue-600 transition-colors rounded"
+                        title={isPlaying ? "Pausar" : "Reproduzir"}
+                      >
+                        {isPlaying ? (
+                          <Pause className="h-5 w-5" />
+                        ) : (
+                          <Play className="h-5 w-5" />
+                        )}
+                      </button>
 
-                    {/* Skip Back */}
-                    <button
-                      onClick={() => skip(-10)}
-                      className="w-9 h-9 flex items-center justify-center text-gray-700 hover:bg-gray-100 rounded transition-colors"
-                      title="Retroceder 10s"
-                    >
-                      <SkipBack className="h-5 w-5" />
-                    </button>
+                      {/* Skip Back */}
+                      <button
+                        onClick={() => skip(-10)}
+                        className="w-9 h-9 flex items-center justify-center text-gray-700 hover:bg-gray-100 rounded transition-colors"
+                        title="Retroceder 10s"
+                      >
+                        <SkipBack className="h-5 w-5" />
+                      </button>
 
-                    {/* Skip Forward */}
-                    <button
-                      onClick={() => skip(10)}
-                      className="w-9 h-9 flex items-center justify-center text-gray-700 hover:bg-gray-100 rounded transition-colors"
-                      title="Avançar 10s"
-                    >
-                      <SkipForward className="h-5 w-5" />
-                    </button>
+                      {/* Skip Forward */}
+                      <button
+                        onClick={() => skip(10)}
+                        className="w-9 h-9 flex items-center justify-center text-gray-700 hover:bg-gray-100 rounded transition-colors"
+                        title="Avançar 10s"
+                      >
+                        <SkipForward className="h-5 w-5" />
+                      </button>
 
-                    {/* Time Display */}
-                    <div className="h-9 flex items-center justify-center px-3 bg-gray-50 rounded border border-gray-200">
-                      <span className="text-xs font-medium text-gray-700 whitespace-nowrap">
-                        {formatTime(currentTime)}/{formatTime(duration)}
-                      </span>
+                      {/* Time Display */}
+                      <div className="h-9 flex items-center justify-center px-3 bg-gray-50 rounded border border-gray-200">
+                        <span className="text-xs font-medium text-gray-700 whitespace-nowrap">
+                          {formatTime(currentTime)}/{formatTime(duration)}
+                        </span>
+                      </div>
+
+                      {/* Volume */}
+                      <button
+                        onClick={toggleMute}
+                        className="w-9 h-9 flex items-center justify-center text-gray-700 hover:text-blue-600 transition-colors rounded"
+                        title={isMuted ? "Ativar som" : "Silenciar"}
+                      >
+                        {isMuted ? (
+                          <VolumeX className="h-5 w-5" />
+                        ) : (
+                          <Volume2 className="h-5 w-5" />
+                        )}
+                      </button>
+
+                      {/* Notas Button */}
+                      <button
+                        onClick={() => setActiveTab('notas')}
+                        className={`h-9 px-4 flex items-center justify-center text-sm font-semibold rounded transition-all ${activeTab === 'notas'
+                          ? 'text-blue-600 bg-blue-50'
+                          : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
+                          }`}
+                      >
+                        Notas
+                      </button>
                     </div>
 
-                    {/* Volume */}
-                    <button
-                      onClick={toggleMute}
-                      className="w-9 h-9 flex items-center justify-center text-gray-700 hover:text-blue-600 transition-colors rounded"
-                      title={isMuted ? "Ativar som" : "Silenciar"}
-                    >
-                      {isMuted ? (
-                        <VolumeX className="h-5 w-5" />
-                      ) : (
-                        <Volume2 className="h-5 w-5" />
-                      )}
-                    </button>
+                    {/* Right Controls */}
+                    <div className="flex items-center gap-1.5">
+                      {/* Settings */}
+                      <button
+                        className="w-9 h-9 flex items-center justify-center text-gray-700 hover:text-blue-600 transition-colors rounded"
+                        title="Configurações padrão de vídeos"
+                      >
+                        <Settings className="h-5 w-5" />
+                      </button>
 
-                    {/* Notas Button */}
-                    <button
-                      onClick={() => setActiveTab('notas')}
-                      className={`h-9 px-4 flex items-center justify-center text-sm font-semibold rounded transition-all ${activeTab === 'notas'
-                        ? 'text-blue-600 bg-blue-50'
-                        : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
-                        }`}
-                    >
-                      Notas
-                    </button>
-                  </div>
+                      {/* Fullscreen */}
+                      <button
+                        onClick={toggleFullscreen}
+                        className="w-9 h-9 flex items-center justify-center text-gray-700 hover:text-blue-600 transition-colors rounded"
+                        title="Tela cheia"
+                      >
+                        <Maximize className="h-5 w-5" />
+                      </button>
 
-                  {/* Right Controls */}
-                  <div className="flex items-center gap-1.5">
-                    {/* Settings */}
-                    <button
-                      className="w-9 h-9 flex items-center justify-center text-gray-700 hover:text-blue-600 transition-colors rounded"
-                      title="Configurações padrão de vídeos"
-                    >
-                      <Settings className="h-5 w-5" />
-                    </button>
-
-                    {/* Fullscreen */}
-                    <button
-                      onClick={() => videoRef.current?.requestFullscreen()}
-                      className="w-9 h-9 flex items-center justify-center text-gray-700 hover:text-blue-600 transition-colors rounded"
-                      title="Tela cheia"
-                    >
-                      <Maximize className="h-5 w-5" />
-                    </button>
-
-                    {/* Quiz Button */}
-                    <button
-                      onClick={() => setActiveTab('quiz')}
-                      className="h-9 px-5 flex items-center justify-center bg-white border-2 border-gray-300 text-gray-700 text-sm font-bold rounded-lg hover:border-blue-400 hover:text-blue-600 transition-all"
-                    >
-                      QUIZ
-                    </button>
+                      {/* Quiz Button */}
+                      <button
+                        onClick={() => setActiveTab('quiz')}
+                        className="h-9 px-5 flex items-center justify-center bg-white border-2 border-gray-300 text-gray-700 text-sm font-bold rounded-lg hover:border-blue-400 hover:text-blue-600 transition-all"
+                      >
+                        QUIZ
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )
+            }
           </div>
 
           {/* Área de Conteúdo Abaixo do Player */}
@@ -799,20 +885,16 @@ export function VideoPlayer({
                                 </button>
                                 <p className="text-sm text-gray-700 whitespace-pre-wrap">{note.content}</p>
                               </div>
-                              <div className="flex gap-1 flex-shrink-0">
+                              <div className="flex items-center gap-1">
                                 <button
                                   onClick={() => startEditing(note)}
                                   className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
                                   title="Editar nota"
                                 >
-                                  <PenLine className="h-4 w-4" />
+                                  <Edit3 className="h-4 w-4" />
                                 </button>
                                 <button
-                                  onClick={() => {
-                                    if (confirm('Tem certeza que deseja excluir esta nota?')) {
-                                      deleteNote(note.id);
-                                    }
-                                  }}
+                                  onClick={() => deleteNote(note.id)}
                                   className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
                                   title="Excluir nota"
                                 >
@@ -820,150 +902,153 @@ export function VideoPlayer({
                                 </button>
                               </div>
                             </div>
+                            <div className="mt-2 text-xs text-gray-400">
+                              Criada em {new Date(note.createdAt).toLocaleDateString()}
+                            </div>
                           </>
                         )}
                       </div>
                     ))}
                   </div>
-                ) : !isAddingNote ? (
-                  // Estado vazio
-                  <div className="text-center py-8 text-gray-500">
-                    <Edit3 className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                    <p className="font-medium text-gray-600">Nenhuma nota ainda</p>
-                    <p className="text-sm mt-1 text-gray-500">
-                      Crie anotações durante o vídeo para guardar conhecimento!
-                    </p>
-                    <button
-                      onClick={() => setIsAddingNote(true)}
-                      className="mt-4 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-colors"
-                    >
-                      Criar primeira nota
-                    </button>
+                ) : (
+                  <div className="text-center py-10 bg-gray-50 border border-dashed border-gray-200 rounded-lg">
+                    <Edit3 className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+                    <p className="text-gray-500 font-medium">Nenhuma nota criada</p>
+                    <p className="text-xs text-gray-400 mt-1">Crie anotações para marcar momentos importantes da aula</p>
                   </div>
-                ) : null}
+                )}
               </div>
             ) : (
-              // Seção do Quiz
-              <div className="h-full">
+              <div className="space-y-6">
+                {/* Header do Quiz */}
+                <div className="flex items-center justify-between border-b border-gray-200 pb-3">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-5 w-5 text-blue-600" />
+                    <h3 className="text-sm font-bold text-gray-900">Quiz de Fixação</h3>
+                  </div>
+                  {quizState.isCompleted && (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                      Concluído • Melhor nota: {quizState.bestScore}%
+                    </span>
+                  )}
+                </div>
+
                 {!quizUnlocked ? (
-                  // Bloqueado
-                  <div className="text-center py-12 text-gray-500">
-                    <div className="bg-gray-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <div className="flex flex-col items-center justify-center py-12 text-center">
+                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
                       <AlertCircle className="h-8 w-8 text-gray-400" />
                     </div>
-                    <h3 className="text-lg font-bold text-gray-900 mb-2">Quiz Bloqueado</h3>
-                    <p className="text-sm max-w-xs mx-auto mb-6">
-                      Assista pelo menos 90% da aula para desbloquear o teste de conhecimento e ganhar XP.
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">Quiz Bloqueado</h3>
+                    <p className="text-gray-500 max-w-sm mb-6">
+                      Assista a pelo menos 90% da aula para desbloquear o quiz de fixação e ganhar XP.
                     </p>
-                    <div className="w-64 mx-auto bg-gray-200 rounded-full h-2 mb-2">
+                    <div className="w-64 h-2 bg-gray-100 rounded-full overflow-hidden">
                       <div
-                        className="bg-blue-600 h-2 rounded-full transition-all duration-500"
-                        style={{ width: `${Math.min(90, (currentTime / duration) * 100)}%` }}
+                        className="h-full bg-blue-500 transition-all duration-500"
+                        style={{ width: `${(currentTime / duration) * 100}%` }}
                       ></div>
                     </div>
-                    <p className="text-xs text-blue-600 font-semibold">
-                      {Math.round((currentTime / duration) * 100)}% assistido
+                    <p className="text-xs text-gray-400 mt-2">
+                      Progresso atual: {Math.round((currentTime / duration) * 100) || 0}%
                     </p>
                   </div>
                 ) : showQuizResult ? (
-                  // Resultado do Quiz
-                  <div className="text-center py-8">
-                    <div className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 ${quizState.score >= 70 ? 'bg-green-100' : 'bg-red-100'
-                      }`}>
-                      {quizState.score >= 70 ? (
-                        <Award className="h-10 w-10 text-green-600" />
-                      ) : (
-                        <AlertCircle className="h-10 w-10 text-red-600" />
+                  <div className="flex flex-col items-center justify-center py-8 text-center animate-in fade-in zoom-in duration-300">
+                    <div className="w-20 h-20 bg-yellow-100 rounded-full flex items-center justify-center mb-6">
+                      <Award className="h-10 w-10 text-yellow-600" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                      {quizState.score >= 70 ? 'Parabéns!' : 'Quase lá!'}
+                    </h2>
+                    <p className="text-gray-600 mb-6">
+                      Você acertou {quizState.score}% das questões
+                    </p>
+
+                    <div className="w-full max-w-md bg-gray-50 rounded-lg p-6 mb-6">
+                      <div className="flex justify-between text-sm mb-2">
+                        <span className="font-medium text-gray-700">Resultado Final</span>
+                        <span className={`font-bold ${quizState.score >= 70 ? 'text-green-600' : 'text-red-500'}`}>
+                          {quizState.score >= 70 ? 'Aprovado' : 'Tente Novamente'}
+                        </span>
+                      </div>
+                      <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full ${quizState.score >= 70 ? 'bg-green-500' : 'bg-red-500'}`}
+                          style={{ width: `${quizState.score}%` }}
+                        ></div>
+                      </div>
+                      {quizState.score >= 70 && (
+                        <div className="mt-4 flex items-center justify-center gap-2 text-sm text-yellow-600 bg-yellow-50 py-2 rounded border border-yellow-200">
+                          <Award className="h-4 w-4" />
+                          <span>+{xpReward} XP Adicionados</span>
+                        </div>
                       )}
                     </div>
 
-                    <h3 className="text-2xl font-bold text-gray-900 mb-2">
-                      {quizState.score >= 70 ? 'Parabéns!' : 'Tente Novamente'}
-                    </h3>
-
-                    <p className="text-gray-600 mb-6">
-                      Você acertou <span className="font-bold text-gray-900">{quizState.score}%</span> das questões
-                    </p>
-
-                    {quizState.score >= 70 && (
-                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 max-w-xs mx-auto mb-8">
-                        <p className="text-sm text-blue-800 font-medium mb-1">Recompensa</p>
-                        <p className="text-2xl font-bold text-blue-600 flex items-center justify-center gap-2">
-                          +{xpReward} XP 💎
-                        </p>
-                      </div>
-                    )}
-
                     <button
                       onClick={restartQuiz}
-                      className="inline-flex items-center gap-2 px-6 py-3 bg-white border-2 border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-50 hover:border-gray-400 transition-all"
+                      className="inline-flex items-center gap-2 px-6 py-3 bg-white border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
                     >
-                      <RefreshCw className="h-5 w-5" />
+                      <RefreshCw className="h-4 w-4" />
                       Refazer Quiz
                     </button>
                   </div>
                 ) : (
-                  // Quiz Ativo
-                  <div className="max-w-2xl mx-auto py-4">
-                    {/* Header Quiz */}
-                    <div className="flex items-center justify-between mb-6">
-                      <span className="text-sm font-medium text-gray-500">
-                        Pergunta {currentQuestionIndex + 1} de {QUESTIONS.length}
-                      </span>
-                      <span className="px-3 py-1 bg-blue-100 text-blue-700 text-xs font-bold rounded-full">
-                        Valendo {xpReward} XP
-                      </span>
+                  <div className="max-w-2xl mx-auto">
+                    {/* Barra de progresso do quiz */}
+                    <div className="mb-8">
+                      <div className="flex justify-between text-xs text-gray-500 mb-2">
+                        <span>Questão {currentQuestionIndex + 1} de {QUESTIONS.length}</span>
+                        <span>{Math.round(((currentQuestionIndex) / QUESTIONS.length) * 100)}% concluído</span>
+                      </div>
+                      <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-blue-600 transition-all duration-300"
+                          style={{ width: `${((currentQuestionIndex + 1) / QUESTIONS.length) * 100}%` }}
+                        ></div>
+                      </div>
                     </div>
 
-                    {/* Pergunta */}
-                    <h3 className="text-xl font-bold text-gray-900 mb-6">
-                      {QUESTIONS[currentQuestionIndex].question}
-                    </h3>
-
-                    {/* Opções */}
-                    <div className="space-y-3 mb-8">
-                      {QUESTIONS[currentQuestionIndex].options.map((option, idx) => {
-                        const isSelected = quizState.answers[QUESTIONS[currentQuestionIndex].id] === idx;
-                        const isCorrect = idx === QUESTIONS[currentQuestionIndex].correctAnswer;
-                        const showFeedback = quizState.answers[QUESTIONS[currentQuestionIndex].id] !== undefined;
-
-                        let buttonStyle = "border-gray-200 hover:border-blue-300 hover:bg-blue-50";
-                        if (showFeedback) {
-                          if (isSelected && isCorrect) buttonStyle = "border-green-500 bg-green-50 text-green-700";
-                          else if (isSelected && !isCorrect) buttonStyle = "border-red-500 bg-red-50 text-red-700";
-                          else if (!isSelected && isCorrect) buttonStyle = "border-green-500 bg-green-50 text-green-700 opacity-75"; // Mostra a correta se errou
-                          else buttonStyle = "border-gray-200 opacity-50";
-                        }
-
-                        return (
+                    {/* Questão */}
+                    <div className="mb-8">
+                      <h3 className="text-lg font-medium text-gray-900 mb-6">
+                        {QUESTIONS[currentQuestionIndex].question}
+                      </h3>
+                      <div className="space-y-3">
+                        {QUESTIONS[currentQuestionIndex].options.map((option, index) => (
                           <button
-                            key={idx}
-                            onClick={() => handleAnswer(idx)}
-                            disabled={showFeedback}
-                            className={`w-full p-4 text-left border-2 rounded-xl transition-all flex items-center justify-between group ${buttonStyle}`}
+                            key={index}
+                            onClick={() => handleAnswer(index)}
+                            className={`w-full text-left p-4 rounded-lg border-2 transition-all ${quizState.answers[QUESTIONS[currentQuestionIndex].id] === index
+                              ? 'border-blue-600 bg-blue-50 text-blue-700 font-medium'
+                              : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50 text-gray-700'
+                              }`}
                           >
-                            <span className="font-medium">{option}</span>
-                            {showFeedback && (isSelected || isCorrect) && (
-                              isCorrect ? (
-                                <CheckCircle className="h-5 w-5 text-green-600" />
-                              ) : isSelected ? (
-                                <AlertCircle className="h-5 w-5 text-red-600" />
-                              ) : null
-                            )}
+                            <div className="flex items-center gap-3">
+                              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${quizState.answers[QUESTIONS[currentQuestionIndex].id] === index
+                                ? 'border-blue-600'
+                                : 'border-gray-300'
+                                }`}>
+                                {quizState.answers[QUESTIONS[currentQuestionIndex].id] === index && (
+                                  <div className="w-2.5 h-2.5 bg-blue-600 rounded-full" />
+                                )}
+                              </div>
+                              <span>{option}</span>
+                            </div>
                           </button>
-                        );
-                      })}
+                        ))}
+                      </div>
                     </div>
 
-                    {/* Footer Quiz */}
-                    <div className="flex justify-end">
+                    {/* Footer / Botão Próximo */}
+                    <div className="flex justify-end pt-4 border-t border-gray-100">
                       <button
                         onClick={nextQuestion}
                         disabled={quizState.answers[QUESTIONS[currentQuestionIndex].id] === undefined}
-                        className="px-6 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                       >
-                        {currentQuestionIndex < QUESTIONS.length - 1 ? 'Próxima Pergunta' : 'Finalizar Quiz'}
-                        <ChevronRight className="h-5 w-5" />
+                        {currentQuestionIndex === QUESTIONS.length - 1 ? 'Finalizar Quiz' : 'Próxima Questão'}
+                        <ChevronRight className="h-4 w-4" />
                       </button>
                     </div>
                   </div>

@@ -298,6 +298,142 @@ export class CourseRepository extends BaseRepository {
         }
     }
 
+    // ==================== CRUD OPERATIONS ====================
+
+    /**
+     * Criar novo curso
+     */
+    async createCourse(context: RepositoryContext, course: Partial<Course>): Promise<Course> {
+        return await this.withContext(context, async () => {
+            const { data, error } = await this.supabase
+                .from('academy_courses')
+                .insert({
+                    id: course.id || crypto.randomUUID(),
+                    tenant_id: context.tenantId,
+                    title: course.title,
+                    description: course.description,
+                    icon: course.icon,
+                    level: course.level,
+                    xp_reward: course.xpReward,
+                    estimated_time: course.estimatedTime,
+                    order_index: course.orderIndex || 0,
+                    status: course.status || 'available'
+                })
+                .select()
+                .single();
+
+            if (error) throw error;
+            return this.mapToCourse(data);
+        });
+    }
+
+    /**
+     * Atualizar curso
+     */
+    async updateCourse(context: RepositoryContext, id: string, course: Partial<Course>): Promise<Course> {
+        return await this.withContext(context, async () => {
+            const { data, error } = await this.supabase
+                .from('academy_courses')
+                .update({
+                    title: course.title,
+                    description: course.description,
+                    icon: course.icon,
+                    level: course.level,
+                    xp_reward: course.xpReward,
+                    estimated_time: course.estimatedTime,
+                    status: course.status
+                })
+                .eq('id', id)
+                .eq('tenant_id', context.tenantId)
+                .select()
+                .single();
+
+            if (error) throw error;
+            return this.mapToCourse(data);
+        });
+    }
+
+    /**
+     * Deletar curso
+     */
+    async deleteCourse(context: RepositoryContext, id: string): Promise<void> {
+        await this.withContext(context, async () => {
+            const { error } = await this.supabase
+                .from('academy_courses')
+                .delete()
+                .eq('id', id)
+                .eq('tenant_id', context.tenantId);
+
+            if (error) throw error;
+        });
+    }
+
+    /**
+     * Criar nova lição
+     */
+    async createLesson(context: RepositoryContext, lesson: Partial<Lesson>): Promise<Lesson> {
+        return await this.withContext(context, async () => {
+            const { data, error } = await this.supabase
+                .from('academy_lessons')
+                .insert({
+                    id: lesson.id || crypto.randomUUID(),
+                    course_id: lesson.courseId,
+                    tenant_id: context.tenantId,
+                    title: lesson.title,
+                    content: lesson.content || '',
+                    video_url: lesson.videoUrl || '',
+                    xp_reward: lesson.xpReward || 10,
+                    order_index: lesson.orderIndex || 0,
+                    lesson_type: lesson.lessonType || 'video'
+                })
+                .select()
+                .single();
+
+            if (error) throw error;
+            return this.mapToLesson(data);
+        });
+    }
+
+    /**
+     * Atualizar lição
+     */
+    async updateLesson(context: RepositoryContext, id: string, lesson: Partial<Lesson>): Promise<Lesson> {
+        return await this.withContext(context, async () => {
+            const { data, error } = await this.supabase
+                .from('academy_lessons')
+                .update({
+                    title: lesson.title,
+                    content: lesson.content,
+                    video_url: lesson.videoUrl,
+                    xp_reward: lesson.xpReward,
+                    lesson_type: lesson.lessonType,
+                    order_index: lesson.orderIndex
+                })
+                .eq('id', id)
+                .eq('tenant_id', context.tenantId)
+                .select()
+                .single();
+
+            if (error) throw error;
+            return this.mapToLesson(data);
+        });
+    }
+
+    /**
+     * Deletar lição
+     */
+    async deleteLesson(context: RepositoryContext, id: string): Promise<void> {
+        await this.withContext(context, async () => {
+            const { error } = await this.supabase
+                .from('academy_lessons')
+                .delete()
+                .eq('id', id)
+                .eq('tenant_id', context.tenantId);
+
+            if (error) throw error;
+        });
+    }
+
     // ==================== MAPPERS ====================
 
     private mapToCourse(data: any): Course {

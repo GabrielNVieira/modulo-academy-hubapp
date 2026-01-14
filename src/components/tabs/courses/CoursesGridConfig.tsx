@@ -42,6 +42,7 @@ export interface CoursesData {
     onFilterChange: (filter: FilterType) => void;
     onSearchChange: (query: string) => void;
     onTurboClick: () => void;
+    courseTitle?: string;
 }
 
 // ============================================
@@ -78,7 +79,7 @@ const LessonListCardRender = ({ data }: { data: CoursesData }) => {
                 <div className="flex items-center justify-between">
                     <CardTitle className="text-xl flex items-center gap-2">
                         <BookOpen className="h-5 w-5 text-primary" />
-                        Módulo: Introdução ao Webhook
+                        {data.courseTitle || 'Módulo: Introdução ao Webhook'}
                     </CardTitle>
                     <Badge variant="secondary" className="px-3">{filteredLessons.length} Aulas</Badge>
                 </div>

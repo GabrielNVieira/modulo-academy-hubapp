@@ -24,40 +24,91 @@ function isUUID(uuid: string) {
     return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(uuid);
 }
 
-// Dados iniciais (default)
+// Dados iniciais (default) - will be loaded from localStorage (written by useAdminCourses)
 const SAMPLE_VIDEO = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
 
-const INITIAL_LESSONS: Lesson[] = [
+// Fallback lessons in case localStorage is empty
+const FALLBACK_LESSONS: Lesson[] = [
     { id: '1', title: 'AULA 1 - Introdução ao Sistema', xp: 10, status: 'not_started', videoUrl: SAMPLE_VIDEO },
     { id: '2', title: 'AULA 2 - Configuração Inicial', xp: 15, status: 'not_started', videoUrl: SAMPLE_VIDEO },
     { id: '3', title: 'AULA 3 - Primeiros Passos', xp: 20, status: 'not_started', videoUrl: SAMPLE_VIDEO },
-    { id: '4', title: 'AULA 4 - Funcionalidades Básicas', xp: 25, status: 'not_started', videoUrl: SAMPLE_VIDEO },
-    { id: '5', title: 'AULA 5 - Recursos Avançados', xp: 30, status: 'not_started', videoUrl: SAMPLE_VIDEO },
-    { id: '6', title: 'AULA 6 - Integrações', xp: 35, status: 'not_started', videoUrl: SAMPLE_VIDEO },
-    { id: '7', title: 'AULA 7 - Boas Práticas', xp: 40, status: 'not_started', videoUrl: SAMPLE_VIDEO },
-    { id: '8', title: 'AULA 8 - Projeto Final', xp: 50, status: 'not_started', videoUrl: SAMPLE_VIDEO },
-    { id: '9', title: 'AULA 9 - Certificação', xp: 100, status: 'not_started', videoUrl: SAMPLE_VIDEO },
 ];
 
 export function CoursesTab() {
     const [activeFilter, setActiveFilter] = useState<FilterType>('not_started');
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
+    const [activeCourseTitle, setActiveCourseTitle] = useState<string>('Curso: Introdução ao Webhook');
+
+    // Helper para converter lição do Domínio para lição da UI
+    const mapLessonToUI = useCallback((l: any, status: LessonStatus = 'not_started'): Lesson => ({
+        id: l.id,
+        title: l.title,
+        xp: l.xpReward || l.xp || 10,
+        status: status,
+        videoUrl: l.videoUrl || l.video_url || SAMPLE_VIDEO
+    }), []);
     const [showPlayer, setShowPlayer] = useState(false);
     const [initialTime, setInitialTime] = useState(0);
     const { addXp, currentLevel } = useProgress();
     const { context, isConnected } = useHubContext();
 
-    // Estado das aulas com persistência
-    const [lessons, setLessons] = useState<Lesson[]>(() => {
+    // Helper to load lessons from localStorage
+    const loadLessonsFromStorage = useCallback(() => {
         try {
             const saved = localStorage.getItem('academy_lessons');
-            return saved ? JSON.parse(saved) : INITIAL_LESSONS;
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                return parsed.map((l: any) => mapLessonToUI(l, l.status || 'not_started'));
+            }
+            return FALLBACK_LESSONS;
         } catch (error) {
             console.error('Erro ao ler aulas do localStorage:', error);
-            return INITIAL_LESSONS;
+            return FALLBACK_LESSONS;
         }
-    });
+    }, [mapLessonToUI]);
+
+    // Estado das aulas com persistência
+    const [lessons, setLessons] = useState<Lesson[]>(loadLessonsFromStorage);
+
+    // Listen for storage changes (e.g., when admin panel makes changes)
+    useEffect(() => {
+        const handleStorageChange = (e: StorageEvent | Event) => {
+            // Handle native storage event (other tabs)
+            if (e instanceof StorageEvent) {
+                if (e.key === 'academy_lessons' && e.newValue) {
+                    console.log('📚 [CoursesTab] Detectada mudança no localStorage (outra aba), recarregando aulas...');
+                    try {
+                        const parsed = JSON.parse(e.newValue);
+                        setLessons(parsed.map((l: any) => mapLessonToUI(l, l.status || 'not_started')));
+                    } catch (error) {
+                        console.error('Erro ao processar mudanças:', error);
+                    }
+                }
+            }
+            // Handle custom event (same tab)
+            else if (e.type === 'academy_lessons_updated') {
+                console.log('📚 [CoursesTab] Detectada mudança no localStorage (mesma aba), recarregando aulas...');
+                const saved = localStorage.getItem('academy_lessons');
+                if (saved) {
+                    try {
+                        const parsed = JSON.parse(saved);
+                        setLessons(parsed.map((l: any) => mapLessonToUI(l, l.status || 'not_started')));
+                    } catch (error) {
+                        console.error('Erro ao processar mudanças:', error);
+                    }
+                }
+            }
+        };
+
+        window.addEventListener('storage', handleStorageChange);
+        window.addEventListener('academy_lessons_updated', handleStorageChange);
+
+        return () => {
+            window.removeEventListener('storage', handleStorageChange);
+            window.removeEventListener('academy_lessons_updated', handleStorageChange);
+        };
+    }, [mapLessonToUI]);
 
     // Carregar aulas do Backend
     useEffect(() => {
@@ -71,20 +122,15 @@ export function CoursesTab() {
                     const courses = await courseRepository.getCourses(context);
 
                     if (courses && courses.length > 0) {
-                        const mainCourse = courses[0]; // Pega o primeiro curso por enquanto
+                        const mainCourse = courses[0];
+                        setActiveCourseTitle(mainCourse.title);
                         const dbLessons = await courseRepository.getCourseLessons(context, mainCourse.id);
 
                         if (dbLessons.length > 0) {
                             // Carregar progresso de cada lição
                             const mergedLessons = await Promise.all(dbLessons.map(async (l) => {
                                 const prog = await courseRepository.getLessonProgress(context, l.id);
-                                return {
-                                    id: l.id,
-                                    title: l.title,
-                                    xp: l.xpReward,
-                                    status: (prog?.status as LessonStatus) || 'not_started',
-                                    videoUrl: l.videoUrl
-                                };
+                                return mapLessonToUI(l, (prog?.status as LessonStatus) || 'not_started');
                             }));
 
                             setLessons(mergedLessons);
@@ -95,11 +141,11 @@ export function CoursesTab() {
                     console.error('❌ [CoursesTab] Erro ao carregar cursos:', err);
                 }
             }
-            // Se falhar ou não tiver backend, mantemos o local state (INITIAL_LESSONS ou localStorage)
+            // Se falhar ou não tiver backend, mantemos o local state (localStorage ou FALLBACK_LESSONS)
         };
 
         loadLessons();
-    }, [isConnected, context]);
+    }, [isConnected, context, mapLessonToUI]);
 
     // Salvar aulas sempre que mudar
     useEffect(() => {
@@ -263,8 +309,9 @@ export function CoursesTab() {
         onLessonClick: handleLessonClick,
         onFilterChange: setActiveFilter,
         onSearchChange: setSearchQuery,
-        onTurboClick: handleTurboClick
-    }), [lessons, filteredLessons, activeFilter, searchQuery, lastLessonId, currentLevel, handleLessonClick, handleTurboClick]);
+        onTurboClick: handleTurboClick,
+        courseTitle: activeCourseTitle
+    }), [lessons, filteredLessons, activeFilter, searchQuery, lastLessonId, currentLevel, handleLessonClick, handleTurboClick, activeCourseTitle]);
 
     // Se o player estiver aberto, mostrar apenas ele
     if (showPlayer && selectedLesson) {
@@ -272,9 +319,9 @@ export function CoursesTab() {
             <VideoPlayer
                 lessonId={selectedLesson.id}
                 lessonTitle={selectedLesson.title}
-                lessonNumber={parseInt(selectedLesson.id)}
+                lessonNumber={parseInt(selectedLesson.id) || 1}
                 totalLessons={lessons.length}
-                courseTitle="Curso: Introdução ao Webhook"
+                courseTitle={activeCourseTitle}
                 xpReward={selectedLesson.xp}
                 videoUrl={selectedLesson.videoUrl || "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"}
                 status={selectedLesson.status}

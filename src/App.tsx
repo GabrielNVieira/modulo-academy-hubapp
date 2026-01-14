@@ -8,7 +8,7 @@
  */
 
 import { useState } from 'react';
-import { GraduationCap, BookOpen, Target, LayoutGrid } from 'lucide-react';
+import { GraduationCap, BookOpen, Target, LayoutGrid, Settings } from 'lucide-react';
 import { useHubContext, useProgress } from './hooks';
 
 // Layout Components
@@ -19,6 +19,7 @@ import { ProgressTab } from './components/tabs/ProgressTab';
 import { CoursesTab } from './components/tabs/CoursesTab';
 import { MissionsTab } from './components/tabs/MissionsTab';
 import { DashboardTab } from './components/tabs/DashboardTab';
+import { AdminDashboard } from './components/admin/AdminDashboard';
 
 // Types
 import type { AcademyModuleConfig } from './types';
@@ -81,14 +82,38 @@ const academyConfig: AcademyModuleConfig = {
 
 export default function App() {
     const [activeTab, setActiveTab] = useState('progresso');
+    const [isAdminMode, setIsAdminMode] = useState(false); // Admin Mode State
     const { isConnected } = useHubContext();
     const { progress, stats, streak, currentLevel, isLoading: progressLoading } = useProgress();
 
+    // Importar dinamicamente ou usar componente já importado (precisa importar no topo)
+    // Para simplificar, vou assumir que AdminDashboard foi importado
 
-
+    // Configuração Dinâmica baseada no modo Admin
+    const activeConfig: AcademyModuleConfig = {
+        ...academyConfig,
+        tabs: isAdminMode
+            ? [
+                ...academyConfig.tabs,
+                {
+                    id: 'admin',
+                    label: 'Admin',
+                    icon: Settings, // Requer importação
+                    order: 99,
+                    color: '#0f172a'
+                }
+            ]
+            : academyConfig.tabs
+    };
 
     // Renderizar conteúdo baseado na aba ativa
     const renderTabContent = () => {
+        // Se estiver na aba admin mas sair do modo admin, voltar para progresso
+        if (activeTab === 'admin' && !isAdminMode) {
+            setActiveTab('progresso');
+            return null;
+        }
+
         switch (activeTab) {
             case 'progresso':
                 return (
@@ -110,6 +135,9 @@ export default function App() {
             case 'dashboard':
                 return <DashboardTab />;
 
+            case 'admin':
+                return isAdminMode ? <AdminDashboard /> : null;
+
             default:
                 return (
                     <ProgressTab
@@ -125,28 +153,51 @@ export default function App() {
 
     return (
         <ModuleLayout
-            config={academyConfig}
+            config={activeConfig}
             activeTab={activeTab}
             onTabChange={setActiveTab}
             isConnected={isConnected}
         >
             {renderTabContent()}
 
-            {/* TEMPORARY DEBUG BUTTON - WILL BE REMOVED FOR PRODUCTION */}
-            <button
-                onClick={() => {
-                    if (confirm('Tem certeza? Isso apagará todo o progresso LOCAL deste navegador.')) {
-                        Object.keys(localStorage).forEach(key => {
-                            if (key.startsWith('academy_')) localStorage.removeItem(key);
-                        });
-                        window.location.reload();
-                    }
-                }}
-                className="fixed bottom-4 right-4 z-[9999] bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-full shadow-lg font-bold text-xs uppercase tracking-wider transition-all hover:scale-105"
-                title="Limpar dados locais e recarregar"
-            >
-                🗑️ Reset Local
-            </button>
+            {/* DEV TOOLS (Fixed Bottom Right) */}
+            <div className="fixed bottom-4 right-4 z-[9999] flex flex-col gap-2 items-end">
+                {/* Toggle Admin Mode */}
+                <button
+                    onClick={() => {
+                        const newMode = !isAdminMode;
+                        setIsAdminMode(newMode);
+                        if (newMode) {
+                            setActiveTab('admin');
+                        } else if (activeTab === 'admin') {
+                            setActiveTab('progresso');
+                        }
+                    }}
+                    className={`px-4 py-2 rounded-full shadow-lg font-bold text-xs uppercase tracking-wider transition-all hover:scale-105 ${isAdminMode
+                        ? 'bg-slate-800 text-white hover:bg-slate-900 border-2 border-slate-600'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        }`}
+                    title="Alternar Modo Administrador"
+                >
+                    {isAdminMode ? '👨‍💼 Admin Mode: ON' : '👤 Admin Mode: OFF'}
+                </button>
+
+                {/* Reset Local Data */}
+                <button
+                    onClick={() => {
+                        if (confirm('Tem certeza? Isso apagará todo o progresso LOCAL deste navegador.')) {
+                            Object.keys(localStorage).forEach(key => {
+                                if (key.startsWith('academy_')) localStorage.removeItem(key);
+                            });
+                            window.location.reload();
+                        }
+                    }}
+                    className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-full shadow-lg font-bold text-xs uppercase tracking-wider transition-all hover:scale-105"
+                    title="Limpar dados locais e recarregar"
+                >
+                    🗑️ Reset Local
+                </button>
+            </div>
         </ModuleLayout>
     );
 }

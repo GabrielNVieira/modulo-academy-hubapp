@@ -317,3 +317,23 @@ body.hub-embedded {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
 }
+
+/* ==================== REACT PLAYER FIX ==================== */
+/* Ensure ReactPlayer and its internal elements fill the container */
+.react-player,
+.react-player > div,
+.react-player video,
+.react-player iframe {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover;
+}
+
+/* Video element specific styling */
+video {
+  background-color: #000;
+}
+
