@@ -5,7 +5,7 @@
  * Gerencia estado de conexão e dados do usuário
  */
 
-import { useState, useEffect, useContext, createContext } from 'react';
+import { useState, useEffect } from 'react';
 import type { HubContext } from '../main';
 import { initializeSupabase } from '../lib/supabase';
 

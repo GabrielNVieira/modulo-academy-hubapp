@@ -285,10 +285,6 @@ export function useAdminCourses() {
 
 
 
-    const reorderLessons = useCallback(async (courseId: string, startIndex: number, endIndex: number) => {
-        // Implementation for drag and drop reordering would go here
-        // For now, simplified
-    }, []);
 
     return {
         courses,

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { BookOpen, Target, Trophy, Settings } from 'lucide-react';
+import { BookOpen, Target, Trophy } from 'lucide-react';
 import { CoursesManager } from './courses/CoursesManager';
 import { MissionsManager } from './missions/MissionsManager';
 import { GamificationManager } from './gamification/GamificationManager';
