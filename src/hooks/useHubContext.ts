@@ -5,9 +5,11 @@
  * Gerencia estado de conexão e dados do usuário
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext, createContext } from 'react';
 import type { HubContext } from '../main';
+import { initializeSupabase } from '../lib/supabase';
 
+// ==================== CRIAR CONTEXTO ====================
 interface UseHubContextReturn {
     context: HubContext | null;
     isConnected: boolean;
@@ -16,6 +18,7 @@ interface UseHubContextReturn {
     tenantId: string | null;
     userId: string | null;
     email: string | null;
+    isMockMode: boolean;
 }
 
 export function useHubContext(): UseHubContextReturn {
@@ -23,6 +26,7 @@ export function useHubContext(): UseHubContextReturn {
     const [isConnected, setIsConnected] = useState<boolean>(window.isHubConnected || false);
     const [isLoading, setIsLoading] = useState<boolean>(!window.hubContext);
     const [error, setError] = useState<string | null>(null);
+    const isMockMode = import.meta.env.VITE_USE_MOCK_DATA === 'true';
 
     useEffect(() => {
         // Se já tem contexto, não precisa esperar
@@ -48,8 +52,8 @@ export function useHubContext(): UseHubContextReturn {
 
                 // MOCK CONTEXT FOR STANDALONE MODE
                 const mockContext: HubContext = {
-                    tenantId: 'demo-tenant',
-                    userId: 'demo-user',
+                    tenantId: '00000000-0000-0000-0000-000000000001', // Valid UUID for demo tenant
+                    userId: '00000000-0000-0000-0000-000000000001',   // Valid UUID for demo user
                     email: 'demo@example.com',
                     moduleName: 'Academy',
                     apiUrl: 'https://api.mock',
@@ -63,8 +67,25 @@ export function useHubContext(): UseHubContextReturn {
 
                 window.hubContext = mockContext;
                 setContext(mockContext);
-                setIsConnected(true);
-                setIsLoading(false);
+
+                // Initialize Supabase only if NOT in Mock Mode
+                if (!isMockMode) {
+                    initializeSupabase(mockContext).then(() => {
+                        console.log('✅ [Academy] Supabase inicializado (Standalone Mode)');
+                        setIsConnected(true);
+                        setIsLoading(false);
+                    }).catch(err => {
+                        console.error('❌ [Academy] Falha ao inicializar Supabase (Standalone):', err);
+                        // Still set connected to allow UI to render (mock mode)
+                        setIsConnected(true);
+                        setIsLoading(false);
+                    });
+                } else {
+                    console.log('🛑 [Academy] VITE_USE_MOCK_DATA=true. Supabase SKIPPED. Usando LocalStorage.');
+                    setIsConnected(true);
+                    setIsLoading(false);
+                }
+
                 setError(null);
                 console.log('✅ [Academy] Standalone Mode ativado com contexto mock');
             }
@@ -76,7 +97,7 @@ export function useHubContext(): UseHubContextReturn {
             window.removeEventListener('hubContextReady', handleContextReady as EventListener);
             clearTimeout(timeout);
         };
-    }, []);
+    }, [isMockMode]);
 
     return {
         context,
@@ -85,7 +106,8 @@ export function useHubContext(): UseHubContextReturn {
         error,
         tenantId: context?.tenantId || null,
         userId: context?.userId || null,
-        email: context?.email || null
+        email: context?.email || null,
+        isMockMode
     };
 }
 

@@ -226,6 +226,95 @@ export class MissionRepository extends BaseRepository {
         }
     }
 
+    /**
+     * Criar nova missão (Admin)
+     */
+    async createMission(context: RepositoryContext, data: Partial<Mission>): Promise<Mission> {
+        try {
+            return await this.withContext(context, async () => {
+                const { data: newMission, error } = await this.supabase
+                    .from('academy_missions')
+                    .insert({
+                        tenant_id: context.tenantId,
+                        title: data.title,
+                        description: data.description,
+                        icon: data.icon,
+                        xp_reward: data.xpReward,
+                        type: data.type || 'daily',
+                        mission_type: data.missionType || 'checklist',
+                        requirements: data.requirements,
+                        order_index: data.order,
+                        estimated_time: data.estimatedTime,
+                        category: data.category,
+                        prerequisites: data.prerequisites || [],
+                        help_content: data.helpContent
+                    })
+                    .select()
+                    .single();
+
+                if (error) throw error;
+                return this.mapToMission(newMission);
+            });
+        } catch (error) {
+            this.handleError(error, 'createMission');
+        }
+    }
+
+    /**
+     * Atualizar missão (Admin)
+     */
+    async updateMission(context: RepositoryContext, id: string, data: Partial<Mission>): Promise<Mission> {
+        try {
+            return await this.withContext(context, async () => {
+                const updateData: any = {};
+                if (data.title !== undefined) updateData.title = data.title;
+                if (data.description !== undefined) updateData.description = data.description;
+                if (data.icon !== undefined) updateData.icon = data.icon;
+                if (data.xpReward !== undefined) updateData.xp_reward = data.xpReward;
+                if (data.type !== undefined) updateData.type = data.type;
+                if (data.missionType !== undefined) updateData.mission_type = data.missionType;
+                if (data.requirements !== undefined) updateData.requirements = data.requirements;
+                if (data.order !== undefined) updateData.order_index = data.order;
+                if (data.estimatedTime !== undefined) updateData.estimated_time = data.estimatedTime;
+                if (data.category !== undefined) updateData.category = data.category;
+                if (data.prerequisites !== undefined) updateData.prerequisites = data.prerequisites;
+                if (data.helpContent !== undefined) updateData.help_content = data.helpContent;
+
+                const { data: updatedMission, error } = await this.supabase
+                    .from('academy_missions')
+                    .update(updateData)
+                    .eq('tenant_id', context.tenantId)
+                    .eq('id', id)
+                    .select()
+                    .single();
+
+                if (error) throw error;
+                return this.mapToMission(updatedMission);
+            });
+        } catch (error) {
+            this.handleError(error, 'updateMission');
+        }
+    }
+
+    /**
+     * Deletar missão (Admin)
+     */
+    async deleteMission(context: RepositoryContext, id: string): Promise<void> {
+        try {
+            await this.withContext(context, async () => {
+                const { error } = await this.supabase
+                    .from('academy_missions')
+                    .delete()
+                    .eq('tenant_id', context.tenantId)
+                    .eq('id', id);
+
+                if (error) throw error;
+            });
+        } catch (error) {
+            this.handleError(error, 'deleteMission');
+        }
+    }
+
     // ==================== MAPPERS ====================
 
     private mapToMission(data: any): Mission {

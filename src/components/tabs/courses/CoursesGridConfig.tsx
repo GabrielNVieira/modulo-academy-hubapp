@@ -4,7 +4,7 @@
  * Segue o mesmo padrão de ProgressGridConfig.tsx
  */
 
-import { Search, PlayCircle, BookOpen, Play } from 'lucide-react';
+import { Search, BookOpen, Play, ChevronDown } from 'lucide-react';
 import { MetricaConfig, MetricaAtiva } from '@/components/MiniCardsGrid/MiniCardsGrid';
 import { E4CEOCard } from '@/components/design-system';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -37,6 +37,10 @@ export interface CoursesData {
     searchQuery: string;
     lastLessonId: string | null;
     currentLevel: Level | null;
+    // Course Selection Added
+    courses: { id: string; title: string }[];
+    activeCourseId: string | null;
+    onCourseSelect: (id: string | null) => void;
     // Callbacks
     onLessonClick: (lesson: Lesson) => void;
     onFilterChange: (filter: FilterType) => void;
@@ -44,6 +48,44 @@ export interface CoursesData {
     onTurboClick: () => void;
     courseTitle?: string;
 }
+
+// ============================================
+// RENDERIZADORES CUSTOMIZADOS
+// ============================================
+
+// Card de Seleção de Cursos (não usado no layout final - comentado para evitar warnings)
+/*
+const CourseSelectorCardRender = ({ data }: { data: CoursesData }) => {
+    const { courses, activeCourseId, onCourseSelect } = data;
+
+    return (
+        <Card className="h-full border-border/50 shadow-sm flex flex-col justify-center">
+            <CardContent className="p-3">
+                <ScrollArea className="w-full whitespace-nowrap">
+                    <div className="flex w-max space-x-2 pb-2">
+                        {courses.length > 0 ? courses.map(course => (
+                            <button
+                                key={course.id}
+                                onClick={() => onCourseSelect(course.id)}
+                                className={cn(
+                                    "px-4 py-2 rounded-full text-xs font-bold transition-all border",
+                                    activeCourseId === course.id
+                                        ? "bg-primary text-white border-primary ring-2 ring-primary/20 shadow-sm"
+                                        : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-white hover:border-primary/50 hover:text-primary"
+                                )}
+                            >
+                                {course.title}
+                            </button>
+                        )) : (
+                            <div className="text-xs text-slate-400 italic px-2">Carregando cursos...</div>
+                        )}
+                    </div>
+                </ScrollArea>
+            </CardContent>
+        </Card>
+    );
+};
+*/
 
 // ============================================
 // RENDERIZADORES CUSTOMIZADOS
@@ -69,9 +111,10 @@ const UserProfileCardRender = ({ data }: { data: CoursesData }) => {
     );
 };
 
-// Card de Lista de Aulas
+// Card de Lista de Cursos e Aulas (Accordion)
 const LessonListCardRender = ({ data }: { data: CoursesData }) => {
-    const { filteredLessons, onLessonClick } = data;
+    const { courses, activeCourseId, onCourseSelect, filteredLessons, onLessonClick } = data;
+    // Icons already imported at the top: BookOpen, Play (using Play instead of PlayCircle)
 
     return (
         <Card className="h-full border-border/50 shadow-xl overflow-hidden flex flex-col">
@@ -79,41 +122,89 @@ const LessonListCardRender = ({ data }: { data: CoursesData }) => {
                 <div className="flex items-center justify-between">
                     <CardTitle className="text-xl flex items-center gap-2">
                         <BookOpen className="h-5 w-5 text-primary" />
-                        {data.courseTitle || 'Módulo: Introdução ao Webhook'}
+                        Meus Cursos
                     </CardTitle>
-                    <Badge variant="secondary" className="px-3">{filteredLessons.length} Aulas</Badge>
+                    <Badge variant="secondary" className="px-3">{courses.length} Cursos</Badge>
                 </div>
             </CardHeader>
             <CardContent className="p-0 flex-1 overflow-hidden">
                 <ScrollArea className="h-full">
-                    <div className="p-4 space-y-3">
-                        {filteredLessons.map((lesson) => (
-                            <div
-                                key={lesson.id}
-                                onClick={() => onLessonClick(lesson)}
-                                className={cn(
-                                    "group flex items-center justify-between p-4 rounded-xl border-2 transition-all cursor-pointer",
-                                    "hover:bg-primary/5 hover:border-primary/40 active:scale-[0.99]",
-                                    lesson.status === 'completed' ? "bg-emerald-50/30 border-emerald-100" : "bg-background border-border"
-                                )}
-                            >
-                                <div className="flex items-center gap-4">
-                                    <div className={cn(
-                                        "w-10 h-10 rounded-lg flex items-center justify-center transition-transform group-hover:scale-110",
-                                        lesson.status === 'completed' ? "bg-emerald-500 text-white" : "bg-muted text-muted-foreground"
-                                    )}>
-                                        <PlayCircle className="h-5 w-5" />
-                                    </div>
-                                    <div>
-                                        <p className="font-bold text-foreground group-hover:text-primary transition-colors">
-                                            {lesson.title.split(' - ')[0]}
-                                        </p>
-                                        <p className="text-xs text-muted-foreground">Conteúdo exclusivo Academy</p>
-                                    </div>
+                    <div className="p-4 space-y-4">
+                        {courses.length > 0 ? courses.map((course) => {
+                            const isActive = activeCourseId === course.id;
+
+                            return (
+                                <div key={course.id} className="rounded-xl border border-border/60 overflow-hidden bg-card transition-all">
+                                    {/* Accordion Header (Course) */}
+                                    <button
+                                        onClick={() => onCourseSelect(isActive ? null : course.id)}
+                                        className={cn(
+                                            "w-full flex items-center justify-between p-4 text-left transition-colors",
+                                            isActive
+                                                ? "bg-primary/5 text-primary font-bold border-b border-primary/10"
+                                                : "bg-transparent text-foreground/80 hover:bg-slate-50 hover:text-primary font-medium"
+                                        )}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <div className={cn(
+                                                "p-2 rounded-lg transition-colors",
+                                                isActive ? "bg-primary text-white" : "bg-slate-100 text-slate-500"
+                                            )}>
+                                                <BookOpen className="h-4 w-4" />
+                                            </div>
+                                            <span className="text-sm uppercase tracking-wide">{course.title}</span>
+                                        </div>
+                                        <ChevronDown className={cn(
+                                            "h-5 w-5 transition-transform duration-200",
+                                            isActive ? "rotate-180 text-primary" : "rotate-0 text-slate-400"
+                                        )} />
+                                    </button>
+
+                                    {/* Accordion Body (Lessons) */}
+                                    {isActive && (
+                                        <div className="bg-slate-50/50 p-2 space-y-2 animate-in slide-in-from-top-2 duration-200">
+                                            {filteredLessons.length > 0 ? filteredLessons.map((lesson) => (
+                                                <div
+                                                    key={lesson.id}
+                                                    onClick={() => onLessonClick(lesson)}
+                                                    className={cn(
+                                                        "group flex items-center justify-between p-3 rounded-lg border transition-all cursor-pointer ml-4",
+                                                        "hover:bg-white hover:border-primary/40 hover:shadow-sm active:scale-[0.99]",
+                                                        lesson.status === 'completed'
+                                                            ? "bg-emerald-50/40 border-emerald-100/50"
+                                                            : "bg-white/60 border-slate-200/60"
+                                                    )}
+                                                >
+                                                    <div className="flex items-center gap-3">
+                                                        <div className={cn(
+                                                            "w-8 h-8 rounded-full flex items-center justify-center transition-transform group-hover:scale-110",
+                                                            lesson.status === 'completed' ? "bg-emerald-500 text-white" : "bg-slate-200 text-slate-500"
+                                                        )}>
+                                                            <Play className="h-4 w-4" />
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-bold text-sm text-foreground group-hover:text-primary transition-colors line-clamp-1">
+                                                                {lesson.title.split(' - ')[0]}
+                                                            </p>
+                                                            <p className="text-[10px] text-muted-foreground">Exclusivo Academy</p>
+                                                        </div>
+                                                    </div>
+                                                    <Badge variant="outline" className="text-[10px] font-bold text-primary px-2 h-5">{lesson.xp} XP</Badge>
+                                                </div>
+                                            )) : (
+                                                <div className="p-4 text-center text-xs text-muted-foreground italic">
+                                                    Nenhuma aula encontrada.
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
-                                <Badge variant="outline" className="font-bold text-primary">{lesson.xp} XP</Badge>
+                            );
+                        }) : (
+                            <div className="p-8 text-center text-muted-foreground">
+                                Nenhum curso disponível.
                             </div>
-                        ))}
+                        )}
                     </div>
                 </ScrollArea>
             </CardContent>

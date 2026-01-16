@@ -32,11 +32,19 @@ export function useAdminCourses() {
     const [courses, setCourses] = useState<Course[]>([]);
     const [lessons, setLessons] = useState<Lesson[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const { context, isConnected } = useHubContext();
+    const { context, isConnected, isMockMode } = useHubContext();
 
     // Helper to refresh data from backend
     const refreshData = useCallback(async () => {
         if (!context || !isConnected) return;
+
+        // SKIP BACKEND IN MOCK MODE
+        if (isMockMode) {
+            // Load from LocalStorage managed by useEffects below
+            // But we might need to initial load here if empty?
+            // Actually, initial load in useEffect handles this fallthrough
+            return;
+        }
 
         try {
             setIsLoading(true);
@@ -126,14 +134,14 @@ export function useAdminCourses() {
         }
     }, [courses, isLoading]);
 
-    // Persist Lessons and Notify
+    // Persist Lessons
     useEffect(() => {
         if (!isLoading) {
             localStorage.setItem('academy_lessons', JSON.stringify(lessons));
-            // Dispatch custom event for same-window sync
-            window.dispatchEvent(new Event('academy_lessons_updated'));
         }
     }, [lessons, isLoading]);
+
+    // ... (rest of code)
 
     // --- CRUD COURSES ---
 
@@ -156,7 +164,7 @@ export function useAdminCourses() {
         // Optimistic update
         setCourses(prev => [...prev, newCourse]);
 
-        if (isConnected && context) {
+        if (isConnected && context && !isMockMode) {
             try {
                 await courseRepository.createCourse(context, newCourse);
                 await refreshData();
@@ -170,7 +178,7 @@ export function useAdminCourses() {
         // Optimistic update
         setCourses(prev => prev.map(c => c.id === id ? { ...c, ...data } : c));
 
-        if (isConnected && context) {
+        if (isConnected && context && !isMockMode) {
             try {
                 await courseRepository.updateCourse(context, id, data);
             } catch (err) {
@@ -185,7 +193,7 @@ export function useAdminCourses() {
             setCourses(prev => prev.filter(c => c.id !== id));
             setLessons(prev => prev.filter(l => l.courseId !== id));
 
-            if (isConnected && context) {
+            if (isConnected && context && !isMockMode) {
                 try {
                     await courseRepository.deleteCourse(context, id);
                 } catch (err) {
@@ -204,6 +212,7 @@ export function useAdminCourses() {
     }, [lessons]);
 
     const createLesson = useCallback(async (courseId: string, data: Partial<Lesson>) => {
+        // ... (optimistic logic stays for responsiveness, but we handle failure better)
         const currentCourseLessons = lessons.filter(l => l.courseId === courseId);
         const newLesson: Lesson = {
             id: crypto.randomUUID(),
@@ -219,43 +228,62 @@ export function useAdminCourses() {
         // Optimistic update
         setLessons(prev => [...prev, newLesson]);
 
-        if (isConnected && context) {
+        if (isConnected && context && !isMockMode) {
             try {
                 await courseRepository.createLesson(context, newLesson);
                 await refreshData();
+                window.dispatchEvent(new Event('academy_lessons_updated'));
             } catch (err) {
                 console.error('Failed to create lesson in backend', err);
+                alert(`Erro ao salvar no banco de dados: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
+                // Rollback by refreshing
+                await refreshData();
             }
         }
     }, [lessons, context, isConnected, refreshData]);
 
     const updateLesson = useCallback(async (id: string, data: Partial<Lesson>) => {
+        // Keep previous state for rollback
+        const previousLessons = [...lessons];
+
         // Optimistic update
         setLessons(prev => prev.map(l => l.id === id ? { ...l, ...data } : l));
 
-        if (isConnected && context) {
+        if (isConnected && context && !isMockMode) {
             try {
                 await courseRepository.updateLesson(context, id, data);
+                window.dispatchEvent(new Event('academy_lessons_updated'));
             } catch (err) {
                 console.error('Failed to update lesson in backend', err);
+                const msg = (err as any)?.message || JSON.stringify(err);
+                alert(`Erro UPDATE: ${msg} Code: ${(err as any)?.code}`);
+                // Rollback
+                setLessons(previousLessons);
             }
         }
-    }, [context, isConnected]);
+    }, [context, isConnected, lessons]);
 
     const deleteLesson = useCallback(async (id: string) => {
         if (confirm('Excluir esta aula?')) {
+            const previousLessons = [...lessons];
+
             // Optimistic update
             setLessons(prev => prev.filter(l => l.id !== id));
 
-            if (isConnected && context) {
+            if (isConnected && context && !isMockMode) {
                 try {
                     await courseRepository.deleteLesson(context, id);
+                    window.dispatchEvent(new Event('academy_lessons_updated'));
                 } catch (err) {
                     console.error('Failed to delete lesson in backend', err);
+                    alert('Falha ao excluir no banco.');
+                    setLessons(previousLessons);
                 }
             }
         }
-    }, [context, isConnected]);
+    }, [context, isConnected, lessons]);
+
+
 
     const reorderLessons = useCallback(async (courseId: string, startIndex: number, endIndex: number) => {
         // Implementation for drag and drop reordering would go here

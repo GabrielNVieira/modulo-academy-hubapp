@@ -214,7 +214,86 @@ export class BadgeRepository extends BaseRepository {
         }
     }
 
-    // ==================== MAPPERS ====================
+
+
+    /**
+     * Criar novo badge (Admin)
+     */
+    async createBadge(context: RepositoryContext, data: Partial<Badge>): Promise<Badge> {
+        try {
+            return await this.withContext(context, async () => {
+                const { data: newBadge, error } = await this.supabase
+                    .from('academy_badges')
+                    .insert({
+                        tenant_id: context.tenantId,
+                        name: data.name,
+                        description: data.description,
+                        icon: data.icon,
+                        category: data.category,
+                        requirements: data.requirements,
+                        xp_bonus: data.xpBonus,
+                        rarity: data.rarity || 'common'
+                    })
+                    .select()
+                    .single();
+
+                if (error) throw error;
+                return this.mapToBadge(newBadge);
+            });
+        } catch (error) {
+            this.handleError(error, 'createBadge');
+        }
+    }
+
+    /**
+     * Atualizar badge (Admin)
+     */
+    async updateBadge(context: RepositoryContext, id: string, data: Partial<Badge>): Promise<Badge> {
+        try {
+            return await this.withContext(context, async () => {
+                const updateData: any = {};
+                if (data.name !== undefined) updateData.name = data.name;
+                if (data.description !== undefined) updateData.description = data.description;
+                if (data.icon !== undefined) updateData.icon = data.icon;
+                if (data.category !== undefined) updateData.category = data.category;
+                if (data.requirements !== undefined) updateData.requirements = data.requirements;
+                if (data.xpBonus !== undefined) updateData.xp_bonus = data.xpBonus;
+                if (data.rarity !== undefined) updateData.rarity = data.rarity;
+
+                const { data: updatedBadge, error } = await this.supabase
+                    .from('academy_badges')
+                    .update(updateData)
+                    .eq('tenant_id', context.tenantId)
+                    .eq('id', id)
+                    .select()
+                    .single();
+
+                if (error) throw error;
+                return this.mapToBadge(updatedBadge);
+            });
+        } catch (error) {
+            this.handleError(error, 'updateBadge');
+        }
+    }
+
+    /**
+     * Deletar badge (Admin)
+     */
+    async deleteBadge(context: RepositoryContext, id: string): Promise<void> {
+        try {
+            await this.withContext(context, async () => {
+                const { error } = await this.supabase
+                    .from('academy_badges')
+                    .delete()
+                    .eq('tenant_id', context.tenantId)
+                    .eq('id', id);
+
+                if (error) throw error;
+            });
+        } catch (error) {
+            this.handleError(error, 'deleteBadge');
+        }
+    }
 
     private mapToBadge(data: any): Badge {
         return {

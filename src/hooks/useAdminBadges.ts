@@ -1,6 +1,8 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import type { Badge } from '../types';
+import { useHubContext } from './useHubContext';
+import { badgeRepository } from '../services';
+import { isSupabaseReady } from '../lib/supabase';
 
 const INITIAL_BADGES: Badge[] = [
     {
@@ -14,72 +16,115 @@ const INITIAL_BADGES: Badge[] = [
         xpBonus: 50,
         rarity: 'common'
     },
-    {
-        id: 'b2',
-        tenantId: 'demo',
-        name: 'Estudioso',
-        description: 'Complete 3 cursos',
-        icon: '📚',
-        category: 'curso',
-        requirements: { type: 'course_complete', description: 'Completar 3 cursos' },
-        xpBonus: 100,
-        rarity: 'rare'
-    }
+    // ... items generally persisted in DB now
 ];
 
 export function useAdminBadges() {
     const [badges, setBadges] = useState<Badge[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const { context, isConnected } = useHubContext();
 
-    useEffect(() => {
-        try {
-            const saved = localStorage.getItem('academy_badges');
-            if (saved) {
-                setBadges(JSON.parse(saved));
-            } else {
-                setBadges(INITIAL_BADGES);
-                localStorage.setItem('academy_badges', JSON.stringify(INITIAL_BADGES));
+    // Fetch Badges
+    const fetchBadges = useCallback(async () => {
+        setIsLoading(true);
+        const useMockData = import.meta.env.VITE_USE_MOCK_DATA === 'true';
+        const hasSupabase = isSupabaseReady();
+
+        if (!useMockData && hasSupabase && isConnected && context) {
+            try {
+                const data = await badgeRepository.getBadges(context);
+                setBadges(data);
+                localStorage.setItem('academy_badges', JSON.stringify(data));
+            } catch (error) {
+                console.error('Failed to load admin badges', error);
             }
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setIsLoading(false);
+        } else {
+            // Mock Fallback
+            try {
+                const saved = localStorage.getItem('academy_badges');
+                if (saved) {
+                    setBadges(JSON.parse(saved));
+                } else {
+                    setBadges(INITIAL_BADGES);
+                }
+            } catch (e) {
+                console.error(e);
+            }
         }
-    }, []);
+        setIsLoading(false);
+    }, [isConnected, context]);
 
     useEffect(() => {
-        if (!isLoading) {
-            localStorage.setItem('academy_badges', JSON.stringify(badges));
-        }
-    }, [badges, isLoading]);
+        fetchBadges();
+    }, [fetchBadges]);
 
     const createBadge = useCallback(async (data: Partial<Badge>) => {
-        const newBadge: Badge = {
-            id: crypto.randomUUID(),
-            tenantId: 'demo',
-            name: data.name || 'Nova Badge',
-            description: data.description || '',
-            icon: data.icon || '🏅',
-            category: data.category || 'especial',
-            requirements: data.requirements || { type: 'custom', description: '' },
-            xpBonus: data.xpBonus || 0,
-            rarity: data.rarity || 'common'
-        };
-        setBadges(prev => [...prev, newBadge]);
-    }, []);
+        const useMockData = import.meta.env.VITE_USE_MOCK_DATA === 'true';
+
+        if (!useMockData && isConnected && context) {
+            try {
+                await badgeRepository.createBadge(context, data);
+                await fetchBadges();
+            } catch (error) {
+                console.error('Error creating badge', error);
+            }
+        } else {
+            const newBadge: Badge = {
+                id: crypto.randomUUID(),
+                tenantId: 'demo',
+                name: data.name || 'Nova Badge',
+                description: data.description || '',
+                icon: data.icon || '🏅',
+                category: data.category || 'especial',
+                requirements: data.requirements || { type: 'custom', description: '' },
+                xpBonus: data.xpBonus || 0,
+                rarity: data.rarity || 'common'
+            };
+            const updated = [...badges, newBadge];
+            setBadges(updated);
+            localStorage.setItem('academy_badges', JSON.stringify(updated));
+        }
+    }, [isConnected, context, badges, fetchBadges]);
 
     const updateBadge = useCallback(async (id: string, data: Partial<Badge>) => {
-        setBadges(prev => prev.map(b => b.id === id ? { ...b, ...data } : b));
-    }, []);
+        const useMockData = import.meta.env.VITE_USE_MOCK_DATA === 'true';
+
+        if (!useMockData && isConnected && context) {
+            try {
+                await badgeRepository.updateBadge(context, id, data);
+                await fetchBadges();
+            } catch (error) {
+                console.error('Error updating badge', error);
+            }
+        } else {
+            const updated = badges.map(b => b.id === id ? { ...b, ...data } : b);
+            setBadges(updated);
+            localStorage.setItem('academy_badges', JSON.stringify(updated));
+        }
+    }, [isConnected, context, badges, fetchBadges]);
 
     const deleteBadge = useCallback(async (id: string) => {
-        if (confirm('Excluir esta badge?')) {
-            setBadges(prev => prev.filter(b => b.id !== id));
+        if (!confirm('Excluir esta badge?')) return;
+
+        const useMockData = import.meta.env.VITE_USE_MOCK_DATA === 'true';
+
+        if (!useMockData && isConnected && context) {
+            try {
+                await badgeRepository.deleteBadge(context, id);
+                await fetchBadges();
+            } catch (error) {
+                console.error('Error deleting badge', error);
+            }
+        } else {
+            const updated = badges.filter(b => b.id !== id);
+            setBadges(updated);
+            localStorage.setItem('academy_badges', JSON.stringify(updated));
         }
-    }, []);
+    }, [isConnected, context, badges, fetchBadges]);
 
     return {
         badges,
+        isLoading,
         createBadge,
         updateBadge,
         deleteBadge

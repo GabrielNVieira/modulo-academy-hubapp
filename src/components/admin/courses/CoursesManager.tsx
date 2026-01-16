@@ -1,13 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, ChevronRight, Video, FileText, HelpCircle, Save, X } from 'lucide-react';
+import { Plus, Edit2, Trash2 } from 'lucide-react';
 import { useAdminCourses } from '@/hooks/useAdminCourses'; // Adjust path if needed
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
-import type { Course, Lesson } from '@/types';
+import type { Lesson } from '@/types';
 
 export function CoursesManager() {
     const {
@@ -43,8 +42,8 @@ export function CoursesManager() {
             <div className="w-1/3 flex flex-col gap-4">
                 <div className="flex items-center justify-between">
                     <h2 className="text-xl font-bold text-slate-800">Cursos</h2>
-                    <Button onClick={() => createCourse({ title: 'Novo Curso' })} size="sm" className="gap-2">
-                        <Plus className="h-4 w-4" /> Novo
+                    <Button onClick={() => createCourse({ title: 'Novo Curso' })} size="sm" className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm border-0">
+                        <Plus className="h-4 w-4" /> Novo Curso
                     </Button>
                 </div>
 
@@ -82,7 +81,7 @@ export function CoursesManager() {
                         <div className="p-6 border-b border-slate-100 bg-slate-50/30 space-y-4">
                             <div className="flex items-center justify-between">
                                 <h2 className="font-bold text-lg text-slate-700 flex items-center gap-2">
-                                    <Edit2 className="h-4 w-4" /> Editando Curso
+                                    <Edit2 className="h-4 w-4" /> Editando: {activeCourse.title}
                                 </h2>
                                 <Button
                                     variant="destructive"
@@ -136,7 +135,7 @@ export function CoursesManager() {
                         {/* Lessons List */}
                         <div className="flex-1 flex flex-col p-6 bg-white min-h-0">
                             <div className="flex items-center justify-between mb-4">
-                                <h3 className="font-semibold text-slate-700">Conteúdo do Curso ({activeLessons.length} Aulas)</h3>
+                                <h3 className="font-semibold text-slate-700">Conteúdo (Aulas)</h3>
                                 <Button size="sm" onClick={() => createLesson(activeCourse.id, {})} className="gap-2">
                                     <Plus className="h-3 w-3" /> Adicionar Aula
                                 </Button>
@@ -158,12 +157,29 @@ export function CoursesManager() {
                                                             placeholder="Título da Aula"
                                                             className="h-8"
                                                         />
-                                                        <Input
-                                                            value={editingLesson.videoUrl || ''}
-                                                            onChange={e => setEditingLesson({ ...editingLesson, videoUrl: e.target.value })}
-                                                            placeholder="URL do Vídeo"
-                                                            className="h-8 text-xs font-mono"
+                                                        <textarea
+                                                            value={editingLesson.content || ''}
+                                                            onChange={e => setEditingLesson({ ...editingLesson, content: e.target.value })}
+                                                            placeholder="Descrição / Conteúdo da Aula"
+                                                            className="flex min-h-[60px] w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs ring-offset-white placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                                                         />
+                                                        <div className="flex gap-2">
+                                                            <Input
+                                                                value={editingLesson.videoUrl || ''}
+                                                                onChange={e => setEditingLesson({ ...editingLesson, videoUrl: e.target.value })}
+                                                                placeholder="URL do Vídeo"
+                                                                className="h-8 text-xs font-mono flex-1"
+                                                            />
+                                                            <div className="flex items-center gap-1 bg-slate-50 px-2 rounded-md border border-slate-200">
+                                                                <span className="text-[10px] font-bold text-slate-400">XP</span>
+                                                                <input
+                                                                    type="number"
+                                                                    value={editingLesson.xpReward || 0}
+                                                                    onChange={e => setEditingLesson({ ...editingLesson, xpReward: parseInt(e.target.value) || 0 })}
+                                                                    className="w-12 bg-transparent border-none text-xs font-bold text-primary focus:outline-none"
+                                                                />
+                                                            </div>
+                                                        </div>
                                                         <div className="flex gap-2 justify-end">
                                                             <Button size="sm" variant="ghost" onClick={() => setEditingLesson(null)} className="h-6 text-xs">Cancelar</Button>
                                                             <Button size="sm" onClick={() => {
@@ -174,7 +190,12 @@ export function CoursesManager() {
                                                     </div>
                                                 ) : (
                                                     <>
-                                                        <h4 className="font-medium text-slate-800 text-sm">{lesson.title}</h4>
+                                                        <div className="flex items-center justify-between">
+                                                            <h4 className="font-medium text-slate-800 text-sm">{lesson.title}</h4>
+                                                            <Badge variant="outline" className="text-[9px] h-4 bg-slate-50 text-slate-500 border-slate-200">
+                                                                {lesson.xpReward || 0} XP
+                                                            </Badge>
+                                                        </div>
                                                         <p className="text-[10px] text-slate-400 font-mono truncate max-w-[300px]">{lesson.videoUrl || 'Sem vídeo configurado'}</p>
                                                     </>
                                                 )}

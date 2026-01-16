@@ -1,9 +1,10 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import type { Mission } from '../types';
+import { useHubContext } from './useHubContext';
+import { missionRepository } from '../services';
+import { isSupabaseReady } from '../lib/supabase';
 
 // Mock Initial Data if empty (copied from useMissions for consistency if localstorage empty)
-// In a real app, we'd share this constant.
 const INITIAL_MISSIONS: Mission[] = [
     {
         id: 'm1',
@@ -31,103 +32,141 @@ const INITIAL_MISSIONS: Mission[] = [
 export function useAdminMissions() {
     const [missions, setMissions] = useState<Mission[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const { context, isConnected } = useHubContext();
 
-    // Initialize Data
-    useEffect(() => {
-        const loadData = () => {
+    // Helper to fetch
+    const fetchMissions = useCallback(async () => {
+        setIsLoading(true);
+        const useMockData = import.meta.env.VITE_USE_MOCK_DATA === 'true';
+        const hasSupabase = isSupabaseReady();
+
+        if (!useMockData && hasSupabase && isConnected && context) {
+            try {
+                const data = await missionRepository.getMissions(context);
+                setMissions(data);
+                // Sync to local
+                localStorage.setItem('academy_missions', JSON.stringify(data));
+            } catch (error) {
+                console.error('Failed to load admin missions from DB', error);
+            }
+        } else {
+            // Fallback Local
             try {
                 const savedMissions = localStorage.getItem('academy_missions');
                 if (savedMissions) {
                     setMissions(JSON.parse(savedMissions));
                 } else {
                     setMissions(INITIAL_MISSIONS);
-                    localStorage.setItem('academy_missions', JSON.stringify(INITIAL_MISSIONS));
                 }
-            } catch (error) {
-                console.error('Failed to load admin missions', error);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
-        loadData();
-    }, []);
-
-    // Persist Missions
-    useEffect(() => {
-        if (!isLoading) {
-            localStorage.setItem('academy_missions', JSON.stringify(missions));
+            } catch (e) { console.error(e); }
         }
-    }, [missions, isLoading]);
+        setIsLoading(false);
+    }, [isConnected, context]);
+
+    // Initial Load
+    useEffect(() => {
+        fetchMissions();
+    }, [fetchMissions]);
 
     // --- CRUD ---
 
     const createMission = useCallback(async (data: Partial<Mission>) => {
-        const newMission: Mission = {
-            id: crypto.randomUUID(),
-            title: data.title || 'Nova Missão',
-            description: data.description || '',
-            type: data.type || 'livre',
-            xpReward: data.xpReward || 100,
-            order: missions.length + 1,
-            status: 'available', // Admin created missions start as available usually or locked
-            estimatedTime: data.estimatedTime || 30,
-            category: data.category || 'Geral',
-            requirements: {
-                items: []
-            },
-            helpContent: {
-                title: 'Ajuda',
-                tips: []
+        const useMockData = import.meta.env.VITE_USE_MOCK_DATA === 'true';
+
+        if (!useMockData && isConnected && context) {
+            try {
+                const newMission = await missionRepository.createMission(context, data);
+                if (newMission) {
+                    await fetchMissions();
+                }
+            } catch (err) {
+                console.error('Error creating mission:', err);
             }
-        };
-        setMissions(prev => [...prev, newMission]);
-    }, [missions]);
+        } else {
+            // Mock Behavior
+            const newMission: Mission = {
+                id: crypto.randomUUID(),
+                title: data.title || 'Nova Missão',
+                description: data.description || '',
+                type: data.type || 'livre',
+                xpReward: data.xpReward || 100,
+                order: missions.length + 1,
+                status: 'available',
+                estimatedTime: data.estimatedTime || 30,
+                category: data.category || 'Geral',
+                requirements: data.requirements || { items: [] },
+                helpContent: data.helpContent || { title: 'Ajuda', tips: [] }
+            };
+            const updated = [...missions, newMission];
+            setMissions(updated);
+            localStorage.setItem('academy_missions', JSON.stringify(updated));
+        }
+    }, [isConnected, context, missions, fetchMissions]);
 
     const updateMission = useCallback(async (id: string, data: Partial<Mission>) => {
-        setMissions(prev => prev.map(m => m.id === id ? { ...m, ...data } : m));
-    }, []);
+        const useMockData = import.meta.env.VITE_USE_MOCK_DATA === 'true';
+
+        if (!useMockData && isConnected && context) {
+            try {
+                await missionRepository.updateMission(context, id, data);
+                await fetchMissions();
+            } catch (err) {
+                console.error('Error updating mission:', err);
+            }
+        } else {
+            // Mock Behavior
+            const updated = missions.map(m => m.id === id ? { ...m, ...data } : m);
+            setMissions(updated);
+            localStorage.setItem('academy_missions', JSON.stringify(updated));
+        }
+    }, [isConnected, context, missions, fetchMissions]);
 
     const deleteMission = useCallback(async (id: string) => {
-        if (confirm('Tem certeza que deseja excluir esta missão?')) {
-            setMissions(prev => prev.filter(m => m.id !== id));
-        }
-    }, []);
+        if (!confirm('Tem certeza que deseja excluir esta missão?')) return;
 
-    // --- Checklist Management ---
+        const useMockData = import.meta.env.VITE_USE_MOCK_DATA === 'true';
+
+        if (!useMockData && isConnected && context) {
+            try {
+                await missionRepository.deleteMission(context, id);
+                await fetchMissions();
+            } catch (err) {
+                console.error('Error deleting mission:', err);
+            }
+        } else {
+            // Mock Behavior
+            const updated = missions.filter(m => m.id !== id);
+            setMissions(updated);
+            localStorage.setItem('academy_missions', JSON.stringify(updated));
+        }
+    }, [isConnected, context, missions, fetchMissions]);
+
+    // --- Checklist Management (Reusing updateMission) ---
 
     const addChecklistItem = useCallback(async (missionId: string, text: string) => {
-        setMissions(prev => prev.map(m => {
-            if (m.id === missionId) {
-                return {
-                    ...m,
-                    requirements: {
-                        ...m.requirements,
-                        items: [
-                            ...m.requirements.items,
-                            { id: crypto.randomUUID(), text, completed: false, required: true }
-                        ]
-                    }
-                };
-            }
-            return m;
-        }));
-    }, []);
+        const mission = missions.find(m => m.id === missionId);
+        if (!mission) return;
+
+        const updatedItems = [
+            ...(mission.requirements?.items || []),
+            { id: crypto.randomUUID(), text, completed: false, required: true }
+        ];
+
+        await updateMission(missionId, {
+            requirements: { ...mission.requirements, items: updatedItems }
+        });
+    }, [missions, updateMission]);
 
     const removeChecklistItem = useCallback(async (missionId: string, itemId: string) => {
-        setMissions(prev => prev.map(m => {
-            if (m.id === missionId) {
-                return {
-                    ...m,
-                    requirements: {
-                        ...m.requirements,
-                        items: m.requirements.items.filter(i => i.id !== itemId)
-                    }
-                };
-            }
-            return m;
-        }));
-    }, []);
+        const mission = missions.find(m => m.id === missionId);
+        if (!mission) return;
+
+        const updatedItems = (mission.requirements?.items || []).filter(i => i.id !== itemId);
+
+        await updateMission(missionId, {
+            requirements: { ...mission.requirements, items: updatedItems }
+        });
+    }, [missions, updateMission]);
 
     return {
         missions,

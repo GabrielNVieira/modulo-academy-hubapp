@@ -19,6 +19,7 @@ import { useProgress } from '../../hooks/useProgress';
 import { useHubContext } from '../../hooks/useHubContext';
 import { isSupabaseReady } from '../../lib/supabase';
 import { courseRepository } from '../../services';
+import { Course } from '../../types';
 
 function isUUID(uuid: string) {
     return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(uuid);
@@ -38,7 +39,7 @@ export function CoursesTab() {
     const [activeFilter, setActiveFilter] = useState<FilterType>('not_started');
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
-    const [activeCourseTitle, setActiveCourseTitle] = useState<string>('Curso: Introdução ao Webhook');
+    const [activeCourseTitle, setActiveCourseTitle] = useState<string>('Curso');
 
     // Helper para converter lição do Domínio para lição da UI
     const mapLessonToUI = useCallback((l: any, status: LessonStatus = 'not_started'): Lesson => ({
@@ -68,8 +69,142 @@ export function CoursesTab() {
         }
     }, [mapLessonToUI]);
 
+    // Estado dos cursos e curso ativo
+    const [courses, setCourses] = useState<Course[]>([]);
+    const [activeCourseId, setActiveCourseId] = useState<string | null>(null);
+
     // Estado das aulas com persistência
     const [lessons, setLessons] = useState<Lesson[]>(loadLessonsFromStorage);
+
+    // Fetch All Courses and then Lessons for Active Course
+    const fetchCoursesAndLessons = useCallback(async () => {
+        const useMockData = import.meta.env.VITE_USE_MOCK_DATA === 'true';
+        const hasSupabase = isSupabaseReady();
+
+        if (!useMockData && hasSupabase && isConnected && context) {
+            try {
+                console.log('📚 [CoursesTab] Buscando cursos do PostgreSQL...');
+                const dbCourses = await courseRepository.getCourses(context);
+
+                if (dbCourses && dbCourses.length > 0) {
+                    // Update Courses List
+                    setCourses(dbCourses);
+
+                    // Logic to set active course if none selected
+                    const targetCourseId = activeCourseId || dbCourses[0].id;
+                    const targetCourse = dbCourses.find(c => c.id === targetCourseId) || dbCourses[0];
+
+                    if (targetCourse.id !== activeCourseId) {
+                        setActiveCourseId(targetCourse.id);
+                        setActiveCourseTitle(targetCourse.title);
+                    }
+
+                    // Fetch Lessons for Target Course
+                    const dbLessons = await courseRepository.getCourseLessons(context, targetCourse.id);
+
+                    if (dbLessons.length > 0) {
+                        const mergedLessons = await Promise.all(dbLessons.map(async (l) => {
+                            const prog = await courseRepository.getLessonProgress(context, l.id);
+                            return mapLessonToUI(l, (prog?.status as LessonStatus) || 'not_started');
+                        }));
+
+                        setLessons(mergedLessons);
+                    } else {
+                        setLessons([]); // No lessons for this course
+                    }
+                }
+            } catch (err) {
+                console.error('❌ [CoursesTab] Erro ao carregar cursos:', err);
+            }
+        } else {
+            // Fallback: LocalStorage / Mock
+            try {
+                const savedCourses = localStorage.getItem('academy_courses');
+                let loadedCourses: Course[] = [];
+
+                if (savedCourses) {
+                    loadedCourses = JSON.parse(savedCourses);
+                    setCourses(loadedCourses);
+                }
+
+                if (loadedCourses.length > 0) {
+                    const targetCourseId = activeCourseId || loadedCourses[0].id;
+                    const targetCourse = loadedCourses.find(c => c.id === targetCourseId) || loadedCourses[0];
+
+                    if (targetCourse.id !== activeCourseId) {
+                        setActiveCourseId(targetCourse.id);
+                        setActiveCourseTitle(targetCourse.title);
+                    }
+
+                    // In mock mode, filter lessons by active course
+                    const savedLessons = localStorage.getItem('academy_lessons');
+                    if (savedLessons) {
+                        const allLessons = JSON.parse(savedLessons);
+                        // Filter lessons by the target course and map to UI format
+                        const filteredLessons = allLessons
+                            .filter((l: any) => l.courseId === targetCourse.id)
+                            .map((l: any) => mapLessonToUI(l, l.status || 'not_started'));
+                        setLessons(filteredLessons);
+                    } else {
+                        setLessons([]);
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to load local courses", e);
+            }
+        }
+    }, [isConnected, context, mapLessonToUI]); // Removed activeCourseId to prevent flickering loop
+
+    // Initial Load
+    useEffect(() => {
+        fetchCoursesAndLessons();
+    }, [fetchCoursesAndLessons]);
+
+    // Effect to handle course change manually
+    const handleCourseSelect = useCallback(async (courseId: string | null) => {
+        if (courseId === null) {
+            // Collapse/close all courses
+            setActiveCourseId(null);
+            setActiveCourseTitle('');
+            setLessons([]);
+            return;
+        }
+
+        const selectedCourse = courses.find(c => c.id === courseId);
+        if (!selectedCourse) return;
+
+        setActiveCourseId(courseId);
+        setActiveCourseTitle(selectedCourse.title);
+
+        // Fetch lessons for the selected course
+        const useMockData = import.meta.env.VITE_USE_MOCK_DATA === 'true';
+        const hasSupabase = isSupabaseReady();
+
+        if (!useMockData && hasSupabase && isConnected && context) {
+            // Backend mode: fetch from database
+            try {
+                const dbLessons = await courseRepository.getCourseLessons(context, courseId);
+                if (dbLessons.length > 0) {
+                    const mergedLessons = await Promise.all(dbLessons.map(async (l) => {
+                        const prog = await courseRepository.getLessonProgress(context, l.id);
+                        return mapLessonToUI(l, (prog?.status as LessonStatus) || 'not_started');
+                    }));
+                    setLessons(mergedLessons);
+                } else {
+                    setLessons([]);
+                }
+            } catch (err) {
+                console.error('Error fetching lessons:', err);
+            }
+        } else {
+            // Mock mode: filter from localStorage and map to UI format
+            const allLessons = JSON.parse(localStorage.getItem('academy_lessons') || '[]');
+            const filteredLessons = allLessons
+                .filter((l: any) => l.courseId === courseId)
+                .map((l: any) => mapLessonToUI(l, l.status || 'not_started'));
+            setLessons(filteredLessons);
+        }
+    }, [courses, isConnected, context, mapLessonToUI]);
 
     // Listen for storage changes (e.g., when admin panel makes changes)
     useEffect(() => {
@@ -104,53 +239,12 @@ export function CoursesTab() {
         window.addEventListener('storage', handleStorageChange);
         window.addEventListener('academy_lessons_updated', handleStorageChange);
 
+
         return () => {
             window.removeEventListener('storage', handleStorageChange);
             window.removeEventListener('academy_lessons_updated', handleStorageChange);
         };
-    }, [mapLessonToUI]);
-
-    // Carregar aulas do Backend
-    useEffect(() => {
-        const loadLessons = async () => {
-            const useMockData = import.meta.env.VITE_USE_MOCK_DATA === 'true';
-            const hasSupabase = isSupabaseReady();
-
-            if (!useMockData && hasSupabase && isConnected && context) {
-                try {
-                    console.log('📚 [CoursesTab] Buscando cursos do PostgreSQL...');
-                    const courses = await courseRepository.getCourses(context);
-
-                    if (courses && courses.length > 0) {
-                        const mainCourse = courses[0];
-                        setActiveCourseTitle(mainCourse.title);
-                        const dbLessons = await courseRepository.getCourseLessons(context, mainCourse.id);
-
-                        if (dbLessons.length > 0) {
-                            // Carregar progresso de cada lição
-                            const mergedLessons = await Promise.all(dbLessons.map(async (l) => {
-                                const prog = await courseRepository.getLessonProgress(context, l.id);
-                                return mapLessonToUI(l, (prog?.status as LessonStatus) || 'not_started');
-                            }));
-
-                            setLessons(mergedLessons);
-                            return;
-                        }
-                    }
-                } catch (err) {
-                    console.error('❌ [CoursesTab] Erro ao carregar cursos:', err);
-                }
-            }
-            // Se falhar ou não tiver backend, mantemos o local state (localStorage ou FALLBACK_LESSONS)
-        };
-
-        loadLessons();
-    }, [isConnected, context, mapLessonToUI]);
-
-    // Salvar aulas sempre que mudar
-    useEffect(() => {
-        localStorage.setItem('academy_lessons', JSON.stringify(lessons));
-    }, [lessons]);
+    }, [mapLessonToUI, fetchCoursesAndLessons]);
 
     // Estado da última aula acessada
     const [lastLessonId, setLastLessonId] = useState<string | null>(() => {
@@ -306,12 +400,17 @@ export function CoursesTab() {
         searchQuery,
         lastLessonId,
         currentLevel,
+        // Course Selection Props
+        courses,
+        activeCourseId,
+        onCourseSelect: handleCourseSelect,
+        // Callbacks
         onLessonClick: handleLessonClick,
         onFilterChange: setActiveFilter,
         onSearchChange: setSearchQuery,
         onTurboClick: handleTurboClick,
         courseTitle: activeCourseTitle
-    }), [lessons, filteredLessons, activeFilter, searchQuery, lastLessonId, currentLevel, handleLessonClick, handleTurboClick, activeCourseTitle]);
+    }), [lessons, filteredLessons, activeFilter, searchQuery, lastLessonId, currentLevel, courses, activeCourseId, handleCourseSelect, handleLessonClick, handleTurboClick, activeCourseTitle]);
 
     // Se o player estiver aberto, mostrar apenas ele
     if (showPlayer && selectedLesson) {
@@ -336,9 +435,13 @@ export function CoursesTab() {
     return (
         <div className="h-full flex flex-col space-y-6">
             {/* Título */}
-            <h1 className="text-3xl font-extrabold text-foreground tracking-tight text-center lg:text-left">
-                Explorar Cursos
-            </h1>
+            <div className="flex flex-col gap-4 flex-none">
+                <div className="flex items-center justify-between">
+                    <h1 className="text-3xl font-extrabold text-foreground tracking-tight text-center lg:text-left">
+                        Explorar Cursos
+                    </h1>
+                </div>
+            </div>
 
             {/* Grid Dinâmico */}
             <div className="flex-1 min-h-0 bg-slate-50/50 rounded-2xl border border-slate-200/60 p-4">
